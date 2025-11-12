@@ -209,7 +209,8 @@
 
     <script>
         // *** CONFIGURATION ***
-        const STORAGE_API_BASE_URL = "[YOUR_RENDER_STORAGE_API_URL]";
+        // Using empty string because the API is on the same domain (e.g., https://novahub-zd14.onrender.com)
+        const STORAGE_API_BASE_URL = "";
         // ---------------------
 
 
@@ -281,6 +282,7 @@
             reader.readAsText(file);
         }
 
+        // Main function to handle the script storage workflow
         async function storeScript() {
             const input = document.getElementById('lua-input').value;
             const output = document.getElementById('lua-output');
@@ -298,6 +300,7 @@
 
             // --- STEP 1: Store Script to API (/store) ---
             try {
+                // Fetch uses relative path: /store
                 const storeResponse = await fetch(`${STORAGE_API_BASE_URL}/store`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -315,7 +318,9 @@
                 const scriptKey = storeData.key;
                 
                 // --- STEP 2: Display Final Loader Script ---
-                const loaderScript = `loadstring(game:HttpGet('${STORAGE_API_BASE_URL}/retrieve/${scriptKey}'))()`;
+                // Constructs the full URL using the current domain (e.g., https://novahub-zd14.onrender.com)
+                const fullRetrievalUrl = `${window.location.origin}/retrieve/${scriptKey}`;
+                const loaderScript = `loadstring(game:HttpGet('${fullRetrievalUrl}'))()`;
 
                 setStatus('Success! Secure loader key generated.', false);
                 output.value = loaderScript;
@@ -331,4 +336,5 @@
     </script>
 </body>
 </html>
+
 
