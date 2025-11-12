@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paradox Lua Obfuscator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a0000 0%, #0a0000 50%, #000000 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .card-bg {
+            background: rgba(255, 255, 255, 0.05); 
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+
+        .glow {
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.9);
+        }
+        .card-glow-inner {
+            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.3);
+        }
+        .card-glow-outer {
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+        
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        
+        @keyframes floating {
+            0% { transform: translate(0, 0px); }
+            50% { transform: translate(0, -15px); }
+            100% { transform: translate(0, 0px); }
+        }
+
+        textarea {
+            resize: none;
+            font-family: monospace;
+            min-height: 250px;
+            background-color: #0a0000;
+            color: #c9d1d9;
+            transition: border-color 0.2s;
+            border: 1px solid #40444b;
+        }
+        textarea:focus {
+             border-color: #ff0000 !important;
+             box-shadow: 0 0 10px rgba(255, 0, 0, 0.5) !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #ff0000, #8b0000);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 0, 0, 0.5);
+        }
+        .btn-primary:disabled {
+            background: #40444b;
+            color: #b9bbbe;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #ff0000;
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 0, 0, 0.2);
+            border-color: #ff6b6b;
+        }
+
+        #file-upload { display: none; }
+        .logo-container {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #ff0000;
+            margin-right: 12px;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+
+        .section-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ff0000, transparent);
+            margin: 40px 0;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex items-start justify-center p-4">
+    <div class="container w-full card-bg p-6 sm:p-8 rounded-xl shadow-2xl mt-8 card-glow-inner">
+        
+        <div class="flex items-center justify-center mb-6">
+            <div class="logo-container">
+                <img src="profile.png" alt="Paradox Logo" class="w-full h-full object-cover">
+            </div>
+            <h1 class="text-3xl font-extrabold text-white glow">
+                <span class="text-red-500">Paradox</span> Lua Obfuscator
+            </h1>
+        </div>
+        
+        <p class="text-red-300 text-center mb-6">
+            Paste or upload your Lua code to protect it using the **Paradox Lua Obfuscator**.
+        </p>
+
+        <div class="mb-6">
+            <label for="lua-input" class="block text-sm font-medium text-red-400 mb-2">Input Lua Code:</label>
+            <textarea id="lua-input" rows="15" class="w-full rounded-lg focus:ring-red-500 focus:border-red-500 p-3 shadow-inner card-glow-inner" placeholder="Enter your Lua script here..."></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+            <label for="file-upload" class="btn-secondary w-full sm:w-auto px-6 py-3 text-white font-medium rounded-lg cursor-pointer text-center">
+                <input type="file" id="file-upload" accept=".lua,.txt" onchange="uploadCode(event)">
+                <i class="fas fa-upload mr-2"></i> Upload Code
+            </label>
+
+            <button onclick="obfuscateCode()" id="obfuscate-button"
+                class="btn-primary w-full sm:w-auto px-6 py-3 text-white font-bold rounded-lg shadow-lg transform hover:scale-[1.01] disabled:transform-none">
+                <i class="fas fa-lock inline w-5 h-5 mr-2"></i>
+                Obfuscate Code 
+            </button>
+        </div>
+
+        <div id="status" class="text-center font-semibold mb-6 min-h-6 text-red-300">
+            Ready to process your code.
+        </div>
+
+        <div class="mb-4">
+            <label for="lua-output" class="block text-sm font-medium text-red-400 mb-2">Obfuscated Output:</label>
+            <textarea id="lua-output" rows="15" readonly class="w-full rounded-lg p-3 shadow-inner card-glow-inner" placeholder="Obfuscated result will appear here."></textarea>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-start gap-4">
+            <button onclick="copyOutput()" id="copy-button"
+                    class="btn-secondary w-full sm:w-auto px-6 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+                <i class="fas fa-copy mr-2"></i>
+                Copy Output
+            </button>
+            
+            <button onclick="downloadOutput()" id="download-button"
+                    class="btn-secondary w-full sm:w-auto px-6 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50">
+                <i class="fas fa-download mr-2"></i>
+                Download .lua
+            </button>
+        </div>
+        
+        <div class="section-divider"></div>
+
+        <section id="about" class="py-4 px-4">
+            <div class="container mx-auto">
+                <div class="max-w-4xl mx-auto flex flex-col items-center text-center">
+                    <h2 class="text-3xl md:text-4xl font-bold mb-8">About The Creator</h2>
+                    
+                    <div class="flex flex-col md:flex-row items-center justify-center mb-8 w-full">
+                        <div class="md:w-1/3 flex justify-center mb-6 md:mb-0">
+                            <div class="relative">
+                                <div class="w-40 h-40 rounded-full overflow-hidden border-4 border-red-500 card-glow-outer pulse floating">
+                                    <img src="profile.png" alt="Marwan" class="w-full h-full object-cover">
+                                </div>
+                                <div class="absolute -bottom-4 -right-4 bg-gradient-to-r from-red-500 to-red-800 text-white py-2 px-4 rounded-lg font-bold shadow-lg">
+                                    Marwan
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="md:w-2/3 text-center md:text-left p-4">
+                            <h3 class="text-2xl font-bold mb-2">Marwan (Adopt)</h3>
+                            <p class="text-gray-300 mb-4">
+                                The **mastermind** behind Paradox Hub and this cutting-edge Lua Obfuscator, dedicated to creating the best scripting experience.
+                            </p>
+                            <div class="flex space-x-4 justify-center md:justify-start">
+                                <a href="https://discord.gg/b5kEG98NN" target="_blank" class="text-red-400 hover:text-red-300 transition-colors">
+                                    <i class="fab fa-discord text-2xl"></i> Discord
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p class="text-lg text-gray-300 max-w-2xl mx-auto mt-4">
+                        This obfuscator represents the culmination of years of experience in scripting, designed to provide users with an unparalleled level of code protection while maintaining the highest standards of performance and reliability.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        document.getElementById('lua-input').value = '-- Simple Example\nlocal health = 100\nfunction checkHealth(dmg)\n  health = health - dmg\n  if health <= 0 then\n    print("Player died!")\n  end\nend\n\ncheckHealth(50)\ncheckHealth(60)';
+
+        function setStatus(message, isError = false) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = 'text-center font-semibold mb-6 min-h-6 ' + (isError ? 'text-red-500 glow' : 'text-cyan-400');
+        }
+
+        function copyOutput() {
+            const output = document.getElementById('lua-output');
+            if (!output.value.trim()) {
+                setStatus("Nothing to copy!", true);
+                return;
+            }
+            output.select();
+            output.setSelectionRange(0, 99999); 
+
+            try {
+                document.execCommand('copy');
+                setStatus("Copied to clipboard!", false);
+            } catch (err) {
+                setStatus("Failed to copy!", true);
+                console.error('Copy error:', err);
+            }
+        }
+
+        function downloadOutput() {
+            const output = document.getElementById('lua-output');
+            const code = output.value.trim();
+            if (!code) {
+                setStatus("Nothing to download!", true);
+                return;
+            }
+
+            const filename = "paradox_obfuscated_code.txt"; 
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(code));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+            
+            setStatus(`Downloaded ${filename}!`, false);
+        }
+        
+        function uploadCode(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const validTypes = ['text/plain', 'application/x-lua', ''];
+            if (!validTypes.includes(file.type) && !file.name.endsWith('.lua') && !file.name.endsWith('.txt')) {
+                setStatus(`Unsupported file type: ${file.name}. Please upload a .lua or .txt file.`, true);
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('lua-input').value = e.target.result;
+                setStatus(`Successfully loaded ${file.name}. Ready to obfuscate.`, false);
+            };
+            reader.onerror = function() {
+                setStatus(`Error reading file: ${file.name}.`, true);
+            };
+            reader.readAsText(file);
+        }
+
+        async function obfuscateCode() {
+            const input = document.getElementById('lua-input').value;
+            const output = document.getElementById('lua-output');
+            const button = document.getElementById('obfuscate-button');
+            const preset = 'Medium';
+            const watermark = "--[[ v0.01 Pardox Lua Obfuscator ]]\n";
+
+            if (!input.trim()) {
+                setStatus('Please paste or upload some Lua code first!', true);
+                return;
+            }
+
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Processing...';
+            setStatus(`Obfuscating using the '${preset}' preset... This may take a few seconds.`, false);
+            output.value = '';
+
+            try {
+                const response = await fetch('/obfuscate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: input, preset: preset }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    setStatus('Obfuscation Complete!', false);
+                    output.value = watermark + data.obfuscatedCode; 
+                } else {
+                    const errorMsg = data.error || 'Obfuscation Failed';
+                    const details = data.details || 'Unknown server error. (Is the backend running?)';
+                    
+                    setStatus(`ERROR: ${errorMsg}. Check output for details.`, true);
+                    output.value = `--- Execution Error ---\n${details}`;
+                    console.error('Server Error:', details);
+                }
+            } catch (error) {
+                setStatus(`An unexpected network error occurred. (Connection to backend failed)`, true);
+                console.error('Fetch error:', error);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-lock inline w-5 h-5 mr-2"></i>Obfuscate Code';
+            }
+        }
+    </script>
+</body>
+</html>
