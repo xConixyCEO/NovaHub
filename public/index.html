@@ -8,27 +8,24 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Define Sleek Deep Purple Theme Variables */
         :root {
-            --purple-dark: #0f001f;   /* Very dark background */
-            --purple-bg: #1e0037;     /* Card background */
-            --purple-medium: #3a006b; /* Button dark base */
-            --purple-accent: #A55EEA; /* Primary Purple Accent */
-            --purple-light: #C3B1E1;  /* Light text/label color */
-            --purple-glow: #a55eea70; /* Subtle glow/shadow */
+            --purple-dark: #0f001f;
+            --purple-bg: #1e0037;
+            --purple-medium: #3a006b;
+            --purple-accent: #A55EEA;
+            --purple-light: #C3B1E1;
+            --purple-glow: #a55eea70;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            /* Changed font to Space Grotesk for a modern, tech-focused look */
             font-family: 'Space Grotesk', sans-serif;
             transition: background-color 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.3s;
         }
         
         body {
-            /* Background with a deep, subtle radial gradient for immersion */
             background: radial-gradient(circle at top left, var(--purple-dark) 0%, #000000 100%);
             color: #fff;
             min-height: 100vh;
@@ -36,7 +33,6 @@
             position: relative;
         }
 
-        /* Subtle background particle effect for depth */
         body::before {
             content: '';
             position: fixed;
@@ -51,7 +47,6 @@
         }
 
         .card-bg {
-            /* Clean background with a strong border */
             background: var(--purple-bg);
             backdrop-filter: blur(8px);
             border: 1px solid rgba(var(--purple-accent), 0.3); 
@@ -78,8 +73,6 @@
              box-shadow: 0 0 15px var(--purple-glow) !important;
         }
         
-        /* --- Button Styling --- */
-
         .btn-base {
             padding: 0.75rem 1.75rem;
             font-weight: 600;
@@ -118,7 +111,7 @@
         }
 
         .btn-discord {
-            background: #7289da; /* Discord Blue */
+            background: #7289da;
         }
         .btn-discord:hover {
             transform: translateY(-3px) scale(1.02);
@@ -135,7 +128,7 @@
             border: 3px solid var(--purple-accent);
             margin-right: 16px;
             box-shadow: 0 0 15px var(--purple-glow);
-            transform: rotate(-5deg); /* Slight angle for style */
+            transform: rotate(-5deg);
         }
         .logo-container:hover {
             transform: rotate(0deg) scale(1.05);
@@ -148,7 +141,6 @@
             opacity: 0.7;
         }
 
-        /* Status text update */
         .text-purple-light {
             color: var(--purple-light);
         }
@@ -227,7 +219,6 @@
         function setStatus(message, isError = false) {
             const statusElement = document.getElementById('status');
             statusElement.textContent = message;
-            // Using tailwind classes and CSS variables for smooth status change
             statusElement.classList.remove('text-green-400', 'text-purple-light', 'glow');
             if (isError) {
                 statusElement.classList.add('text-purple-light', 'glow');
@@ -237,7 +228,6 @@
             statusElement.classList.add('animate-pulse-once');
         }
 
-        // Custom animation class for pulse on status change
         const style = document.createElement('style');
         style.innerHTML = `
         @keyframes pulse-once {
