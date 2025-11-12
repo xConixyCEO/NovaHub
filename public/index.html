@@ -3,52 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paradox Lua Obfuscator</title>
+    <title>NovaHub Lua Obfuscator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        /* Define Deep Dark Purple Theme Variables */
+        :root {
+            --purple-dark: #1e0037;
+            --purple-medium: #3a006b;
+            --purple-accent: #8A2BE2; /* BlueViolet */
+            --purple-light: #C3B1E1; /* Light Lavender */
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+            /* Changed font to Roboto for a cleaner, modern UI feel */
+            font-family: 'Roboto', sans-serif;
         }
         
         body {
-            background: linear-gradient(135deg, #1a0000 0%, #0a0000 50%, #000000 100%);
+            /* Deep Dark Purple Background */
+            background: linear-gradient(135deg, var(--purple-dark) 0%, #000000 70%);
             color: #fff;
             min-height: 100vh;
         }
 
         .card-bg {
-            background: rgba(255, 255, 255, 0.05); 
+            /* Translucent card background */
+            background: rgba(255, 255, 255, 0.03); 
             backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 0, 0, 0.3);
+            /* Purple Border */
+            border: 1px solid rgba(138, 43, 226, 0.5); 
         }
 
         .glow {
-            text-shadow: 0 0 15px rgba(255, 0, 0, 0.9);
+            /* Purple Glow */
+            text-shadow: 0 0 15px var(--purple-accent);
         }
         .card-glow-inner {
-            box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.3);
+            /* Inner shadow */
+            box-shadow: inset 0 0 10px rgba(138, 43, 226, 0.3);
         }
         .card-glow-outer {
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            /* Outer shadow */
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
         }
         
-        .pulse {
-            animation: pulse 2s infinite;
-        }
-        
+        /* Pulse Animation updated for purple */
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
-        }
-        
-        .floating {
-            animation: floating 3s ease-in-out infinite;
+            0% { box-shadow: 0 0 0 0 rgba(138, 43, 226, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(138, 43, 226, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(138, 43, 226, 0); }
         }
         
         @keyframes floating {
@@ -61,23 +69,24 @@
             resize: none;
             font-family: monospace;
             min-height: 250px;
-            background-color: #0a0000;
+            background-color: var(--purple-dark);
             color: #c9d1d9;
             transition: border-color 0.2s;
             border: 1px solid #40444b;
         }
         textarea:focus {
-             border-color: #ff0000 !important;
-             box-shadow: 0 0 10px rgba(255, 0, 0, 0.5) !important;
+             border-color: var(--purple-accent) !important;
+             box-shadow: 0 0 10px rgba(138, 43, 226, 0.7) !important;
         }
 
         .btn-primary {
-            background: linear-gradient(90deg, #ff0000, #8b0000);
+            /* Primary Button: Gradient from dark to light purple */
+            background: linear-gradient(90deg, var(--purple-accent), var(--purple-medium));
             transition: all 0.3s ease;
         }
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 0, 0, 0.5);
+            box-shadow: 0 5px 15px rgba(138, 43, 226, 0.5);
         }
         .btn-primary:disabled {
             background: #40444b;
@@ -86,14 +95,24 @@
             box-shadow: none;
         }
         .btn-secondary {
+            /* Secondary Button: Translucent with purple border */
             background: rgba(255, 255, 255, 0.1);
-            border: 1px solid #ff0000;
+            border: 1px solid var(--purple-accent);
             transition: all 0.3s ease;
         }
         .btn-secondary:hover {
-            background: rgba(255, 0, 0, 0.2);
-            border-color: #ff6b6b;
+            background: rgba(138, 43, 226, 0.2);
+            border-color: var(--purple-light);
         }
+        .btn-discord {
+            background: #7289da; /* Discord Blue */
+            transition: all 0.3s ease;
+        }
+        .btn-discord:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(114, 137, 218, 0.5);
+        }
+
 
         #file-upload { display: none; }
         .logo-container {
@@ -101,14 +120,17 @@
             height: 40px;
             border-radius: 8px;
             overflow: hidden;
-            border: 2px solid #ff0000;
+            /* Purple Border */
+            border: 2px solid var(--purple-accent);
             margin-right: 12px;
-            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+            /* Purple Shadow */
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
         }
 
         .section-divider {
             height: 2px;
-            background: linear-gradient(90deg, transparent, #ff0000, transparent);
+            /* Purple Divider */
+            background: linear-gradient(90deg, transparent, var(--purple-accent), transparent);
             margin: 40px 0;
         }
 
@@ -119,20 +141,20 @@
         
         <div class="flex items-center justify-center mb-6">
             <div class="logo-container">
-                <img src="profile.png" alt="Paradox Logo" class="w-full h-full object-cover">
+                <img src="profile.png" alt="NovaHub Logo" class="w-full h-full object-cover">
             </div>
             <h1 class="text-3xl font-extrabold text-white glow">
-                <span class="text-red-500">Paradox</span> Lua Obfuscator
+                <span style="color: var(--purple-light);">NovaHub</span> Lua Obfuscator
             </h1>
         </div>
         
-        <p class="text-red-300 text-center mb-6">
-            Paste or upload your Lua code to protect it using the **Paradox Lua Obfuscator**.
+        <p class="text-purple-light text-center mb-6">
+            Paste or upload your Lua code to protect it using the **NovaHub Lua Obfuscator**.
         </p>
 
         <div class="mb-6">
-            <label for="lua-input" class="block text-sm font-medium text-red-400 mb-2">Input Lua Code:</label>
-            <textarea id="lua-input" rows="15" class="w-full rounded-lg focus:ring-red-500 focus:border-red-500 p-3 shadow-inner card-glow-inner" placeholder="Enter your Lua script here..."></textarea>
+            <label for="lua-input" class="block text-sm font-medium text-purple-light mb-2">Input Lua Code:</label>
+            <textarea id="lua-input" rows="15" class="w-full rounded-lg focus:ring-purple-accent focus:border-purple-accent p-3 shadow-inner card-glow-inner" placeholder="Enter your Lua script here..."></textarea>
         </div>
 
         <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
@@ -148,12 +170,12 @@
             </button>
         </div>
 
-        <div id="status" class="text-center font-semibold mb-6 min-h-6 text-red-300">
+        <div id="status" class="text-center font-semibold mb-6 min-h-6 text-purple-light">
             Ready to process your code.
         </div>
 
         <div class="mb-4">
-            <label for="lua-output" class="block text-sm font-medium text-red-400 mb-2">Obfuscated Output:</label>
+            <label for="lua-output" class="block text-sm font-medium text-purple-light mb-2">Obfuscated Output:</label>
             <textarea id="lua-output" rows="15" readonly class="w-full rounded-lg p-3 shadow-inner card-glow-inner" placeholder="Obfuscated result will appear here."></textarea>
         </div>
 
@@ -173,44 +195,15 @@
         
         <div class="section-divider"></div>
 
-        <section id="about" class="py-4 px-4">
-            <div class="container mx-auto">
-                <div class="max-w-4xl mx-auto flex flex-col items-center text-center">
-                    <h2 class="text-3xl md:text-4xl font-bold mb-8">About The Creator</h2>
-                    
-                    <div class="flex flex-col md:flex-row items-center justify-center mb-8 w-full">
-                        <div class="md:w-1/3 flex justify-center mb-6 md:mb-0">
-                            <div class="relative">
-                                <div class="w-40 h-40 rounded-full overflow-hidden border-4 border-red-500 card-glow-outer pulse floating">
-                                    <img src="profile.png" alt="Marwan" class="w-full h-full object-cover">
-                                </div>
-                                <div class="absolute -bottom-4 -right-4 bg-gradient-to-r from-red-500 to-red-800 text-white py-2 px-4 rounded-lg font-bold shadow-lg">
-                                    Marwan
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="md:w-2/3 text-center md:text-left p-4">
-                            <h3 class="text-2xl font-bold mb-2">Marwan (Adopt)</h3>
-                            <p class="text-gray-300 mb-4">
-                                The **mastermind** behind Paradox Hub and this cutting-edge Lua Obfuscator, dedicated to creating the best scripting experience.
-                            </p>
-                            <div class="flex space-x-4 justify-center md:justify-start">
-                                <a href="https://discord.gg/b5kEG98NN" target="_blank" class="text-red-400 hover:text-red-300 transition-colors">
-                                    <i class="fab fa-discord text-2xl"></i> Discord
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <p class="text-lg text-gray-300 max-w-2xl mx-auto mt-4">
-                        This obfuscator represents the culmination of years of experience in scripting, designed to provide users with an unparalleled level of code protection while maintaining the highest standards of performance and reliability.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-    </div>
+        <div class="text-center">
+            <h2 class="text-2xl font-bold mb-4" style="color: var(--purple-light);">Join the Community</h2>
+            <a href="https://discord.gg/b5kEG98NN" target="_blank" 
+                class="btn-discord inline-flex items-center justify-center px-8 py-3 text-white font-bold rounded-lg shadow-lg transform hover:scale-[1.05]">
+                <i class="fab fa-discord text-2xl mr-3"></i>
+                NovaHub Discord Server
+            </a>
+        </div>
+        </div>
 
     <script>
         document.getElementById('lua-input').value = '-- Simple Example\nlocal health = 100\nfunction checkHealth(dmg)\n  health = health - dmg\n  if health <= 0 then\n    print("Player died!")\n  end\nend\n\ncheckHealth(50)\ncheckHealth(60)';
@@ -218,8 +211,9 @@
         function setStatus(message, isError = false) {
             const statusElement = document.getElementById('status');
             statusElement.textContent = message;
-            const errorClass = 'text-red-500 glow';
-            const successClass = 'text-cyan-400';
+            // Updated colors for status messages
+            const errorClass = 'text-purple-light glow'; // Using purple-light for errors/status
+            const successClass = 'text-green-400';
             statusElement.className = 'text-center font-semibold mb-6 min-h-6 ' + (isError ? errorClass : successClass);
         }
 
@@ -249,10 +243,10 @@
                 return;
             }
 
-            
+            // Generate a unique hexadecimal string
             const randomHex = (Math.random() * 0xFFFFFF << 0).toString(16).toUpperCase().padStart(6, '0');
-            
-            const filename = `paradox_obf_${randomHex}.lua`; 
+            // Change filename prefix to 'novahub'
+            const filename = `novahub_obf_${randomHex}.lua`; 
 
             const element = document.createElement('a');
             element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(code));
@@ -274,7 +268,6 @@
             const validTypes = ['text/plain', 'application/x-lua', ''];
             if (!validTypes.includes(file.type) && !file.name.endsWith('.lua') && !file.name.endsWith('.txt')) {
                 setStatus(`Unsupported file type: ${file.name}. Please upload a .lua or .txt file.`, true);
-                event.target.value = '';
                 return;
             }
 
