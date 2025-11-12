@@ -141,7 +141,7 @@ app.get('/retrieve/:key', async (req, res) => {
     // 1. Validate User-Agent 
     if (!userAgent || !userAgent.includes('Roblox')) {
         res.setHeader('Content-Type', 'text/plain');
-        return res.status(403).send('😬 -- Access Denied. Must use Roblox execution environment.');
+        return res.status(403).send(' Access Denied ');
     }
 
     try {
