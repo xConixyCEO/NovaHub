@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NovaHub API Locker</title>
+    <title>NovaHub API Service</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -155,12 +154,12 @@
                 <img src="profile.png" alt="NovaHub Logo" class="w-full h-full object-cover">
             </div>
             <h1 class="text-4xl font-bold text-white glow">
-                <span style="color: var(--purple-accent);">NovaHub</span> API Service.
+                <span style="color: var(--purple-accent);">NovaHub</span> API Service
             </h1>
         </div>
         
         <p class="text-purple-light text-center mb-8 font-medium">
-            Paste your final Lua code  to generate a secure, Roblox-only retrieval key.
+            Paste your final Lua code to generate a secure, script.
         </p>
 
         <div class="mb-6">
@@ -182,7 +181,7 @@
         </div>
 
         <div id="status" class="text-center font-medium mb-6 min-h-6 text-purple-light">
-            Ready to store script.
+            Ready to protect script.
         </div>
 
         <div class="mb-4">
@@ -209,13 +208,9 @@
     </div>
 
     <script>
-        // *** CONFIGURATION ***
-        // Using empty string because the API is on the same domain (e.g., https://novahub-zd14.onrender.com)
-        const STORAGE_API_BASE_URL = "";
-        // ---------------------
+        const STORAGE_API_BASE_URL = ""; 
 
-
-        document.getElementById('lua-input').value = 'print("NovaHub Secure Script Initialized!")\n-- Paste your final obfuscated code below.';
+        document.getElementById('lua-input').value = 'print("NovaHub Secure Script Initialized!")\n-- Paste your full code here.';
 
         function setStatus(message, isError = false) {
             const statusElement = document.getElementById('status');
@@ -283,7 +278,6 @@
             reader.readAsText(file);
         }
 
-        // Main function to handle the script storage workflow
         async function storeScript() {
             const input = document.getElementById('lua-input').value;
             const output = document.getElementById('lua-output');
@@ -299,9 +293,7 @@
             setStatus(`Sending script to storage API...`, false);
             output.value = '';
 
-            // --- STEP 1: Store Script to API (/store) ---
             try {
-                // Fetch uses relative path: /store
                 const storeResponse = await fetch(`${STORAGE_API_BASE_URL}/store`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -318,8 +310,6 @@
 
                 const scriptKey = storeData.key;
                 
-                // --- STEP 2: Display Final Loader Script ---
-                // Constructs the full URL using the current domain (e.g., https://novahub-zd14.onrender.com)
                 const fullRetrievalUrl = `${window.location.origin}/retrieve/${scriptKey}`;
                 const loaderScript = `loadstring(game:HttpGet('${fullRetrievalUrl}'))()`;
 
