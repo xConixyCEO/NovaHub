@@ -321,7 +321,7 @@
             output.value = '';
 
             try {
-                // *** FIX: Changed endpoint to /obfuscate-only ***
+            
                 const response = await fetch('/obfuscate-only', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -331,7 +331,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // This route returns the final raw obfuscated source code
+                    
                     setStatus('Obfuscation Complete!', false);
                     output.value = data.obfuscatedCode;
                 } else {
