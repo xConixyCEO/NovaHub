@@ -10,10 +10,6 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000; 
 
-// --- CONFIGURATION ---
-const MAX_LAYERS = 2; // Final setting for the secure nested loader chain
-// ---------------------
-
 // --- CRITICAL: INCREASED PAYLOAD LIMIT TO 100MB ---
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
@@ -62,117 +58,132 @@ const generateUniqueId = () => {
     return crypto.randomBytes(16).toString('hex');
 };
 
-const runObfuscationStep = async (rawLuaCode, preset, timestamp) => {
-    const tempFile = path.join(__dirname, `temp_${timestamp}.lua`);
-    const outputFile = path.join(__dirname, `obf_${timestamp}.lua`);
-    
-    fs.writeFileSync(tempFile, rawLuaCode, 'utf8');
-    const command = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
-
-    return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
-            fs.unlinkSync(tempFile); 
-            
-            if (error || stderr) {
-                if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
-                return reject({ error: 'Obfuscation execution error.', details: stderr || error.message });
-            }
-            
-            try {
-                let obfuscatedCode = fs.readFileSync(outputFile, 'utf8');
-                obfuscatedCode = WATERMARK + obfuscatedCode;
-                fs.unlinkSync(outputFile);
-                resolve(obfuscatedCode);
-            } catch (readError) {
-                reject({ error: 'Failed to read obfuscated output.', details: readError.message });
-            }
-        });
-    });
-};
-
 
 // =======================================================
-// === 1. /OBFUSCATE ROUTE (Returns Raw Code) ===========
+// === 1. OBFUSCATE ROUTE (Returns Raw Code) ===========
 // =======================================================
+// This route is for the main Obfuscator UI to get raw output.
 app.post('/obfuscate', async (req, res) => {
-    const rawLuaCode = req.body.code;
+    const rawLuaCode = req.body.code; // Note: Frontend sends 'code'
     const preset = 'Medium';
     const timestamp = Date.now();
     
+    const tempFile = path.join(__dirname, `temp_${timestamp}.lua`);
+    const outputFile = path.join(__dirname, `obf_${timestamp}.lua`);
+    
+    let obfuscatedCode = '';
+
+    // Step 1: Execute Obfuscator
     try {
-        // Runs Prometheus once
-        const obfuscatedCode = await runObfuscationStep(rawLuaCode, preset, timestamp);
+        fs.writeFileSync(tempFile, rawLuaCode, 'utf8');
+
+        // Command to run Prometheus
+        const command = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
         
-        // Return Raw Obfuscated Code (NO STORAGE)
-        res.status(200).json({ 
-            obfuscatedCode: obfuscatedCode
+        // Execute CLI synchronously
+        await new Promise((resolve, reject) => {
+            exec(command, (error, stdout, stderr) => {
+                // Clean up the temporary input file immediately
+                fs.unlinkSync(tempFile); 
+                
+                if (error || stderr) {
+                    // If Prometheus fails (e.g., syntax error), reject
+                    console.error(`Prometheus Execution Failed: ${error ? error.message : stderr}`);
+                    if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+                    return reject({ error: 'Obfuscation execution error.', details: stderr || error.message });
+                }
+                
+                // Read the obfuscated result
+                obfuscatedCode = fs.readFileSync(outputFile, 'utf8');
+                
+                // Apply Watermark
+                obfuscatedCode = WATERMARK + obfuscatedCode;
+                
+                // Clean up output file
+                fs.unlinkSync(outputFile);
+                resolve();
+            });
         });
+        
     } catch (error) {
+        // Handle errors during execution or file read
         if (typeof error === 'object' && error.error) {
-            return res.status(500).json(error);
+            return res.status(500).json(error); // Return structured error from CLI rejection
         }
+        console.error('Filesystem or Execution Error:', error);
         return res.status(500).json({ error: 'Internal execution error.', details: error.message });
     }
+
+    // Step 2: Return Raw Obfuscated Code (NO STORAGE)
+    res.status(200).json({ 
+        obfuscatedCode: obfuscatedCode
+    });
 });
 
 
 // =======================================================
-// === 2. /OBFUSCATE-AND-STORE ROUTE (NESTED CHAIN) ===
+// === 2. OBFUSCATE-AND-STORE ROUTE (Returns Loader Key) ===
 // =======================================================
-// Used by the API Locker to get the secure key.
+// This route is used by the API Locker to get the secure key.
 app.post('/obfuscate-and-store', async (req, res) => {
-    const rawLuaCode = req.body.script; 
-    const preset = 'Medium';
+    const rawLuaCode = req.body.script; // Note: Frontend sends 'script'
+    const preset = 'Medium'; 
+    const timestamp = Date.now();
     
-    if (!rawLuaCode || rawLuaCode.trim() === '') {
-        return res.status(400).json({ error: 'Input script cannot be empty.' });
+    const tempFile = path.join(__dirname, `temp_${timestamp}.lua`);
+    const outputFile = path.join(__dirname, `obf_${timestamp}.lua`);
+    
+    let obfuscatedCode = '';
+
+    // Step 1: Execute Obfuscator
+    try {
+        fs.writeFileSync(tempFile, rawLuaCode, 'utf8');
+
+        const command = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
+        
+        await new Promise((resolve, reject) => {
+            exec(command, (error, stdout, stderr) => {
+                fs.unlinkSync(tempFile); 
+                
+                if (error || stderr) {
+                    console.error(`Prometheus Execution Failed: ${error ? error.message : stderr}`);
+                    if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+                    return reject({ error: 'Obfuscation execution error.', details: stderr || error.message });
+                }
+                
+                obfuscatedCode = fs.readFileSync(outputFile, 'utf8');
+                obfuscatedCode = WATERMARK + obfuscatedCode;
+                fs.unlinkSync(outputFile);
+                resolve();
+            });
+        });
+        
+    } catch (error) {
+        if (typeof error === 'object' && error.error) {
+            return res.status(500).json(error);
+        }
+        console.error('Filesystem or Execution Error:', error);
+        return res.status(500).json({ error: 'Internal execution error.', details: error.message });
     }
 
-    let currentPayload = rawLuaCode;
-    let finalLoaderScript = '';
-
+    // Step 2: Store Obfuscated Code to PostgreSQL
+    const scriptKey = generateUniqueId();
+    
     try {
-        // Loop MAX_LAYERS times (set to 25) to create the nested chain
-        for (let i = 1; i <= MAX_LAYERS; i++) {
-            const timestamp = Date.now() + i; 
-            
-            // Step 1: Obfuscate the CURRENT payload
-            const obfuscatedPayload = await runObfuscationStep(currentPayload, preset, timestamp);
+        await pool.query(
+            'INSERT INTO scripts(key, script) VALUES($1, $2)',
+            [scriptKey, obfuscatedCode] // Store the watermarked, obfuscated code
+        );
 
-            // Step 2: Store the Obfuscated Payload
-            const scriptKey = generateUniqueId();
-            
-            await pool.query(
-                'INSERT INTO scripts(key, script) VALUES($1, $2)',
-                [scriptKey, obfuscatedPayload]
-            );
-
-            // Step 3: Prepare the Loader Script for the NEXT iteration
-            const retrievalURL = `/retrieve/${scriptKey}`;
-            const loaderScript = `loadstring(game:HttpGet('${retrievalURL}'))()`;
-
-            // The input for the next loop iteration is the loader script
-            currentPayload = loaderScript;
-
-            // The very last loader generated (i=MAX_LAYERS) is the one we return to the user.
-            if (i === MAX_LAYERS) {
-                 finalLoaderScript = loaderScript;
-            }
-        }
-        
-        // Success: Return the final loadstring to the frontend.
+        // Success: Return the key to the frontend
         res.status(201).json({ 
-            message: `Obfuscation complete: ${MAX_LAYERS} layers stored.`,
-            key: finalLoaderScript.match(/\/retrieve\/([a-f0-9]+)/)[1], 
-            loader: finalLoaderScript 
+            message: 'Obfuscation and storage complete.',
+            key: scriptKey
         });
 
     } catch (error) {
-        console.error('Unified Workflow Error:', error);
-        if (typeof error === 'object' && error.error) {
-             return res.status(500).json(error);
-        }
-        return res.status(500).json({ error: 'Critical server error during multi-step processing.', details: error.message });
+        console.error('Database error during storage:', error);
+        res.status(500).json({ error: 'Internal server error during script storage.' });
     }
 });
 
@@ -205,7 +216,7 @@ app.get('/retrieve/:key', async (req, res) => {
 
         const script = result.rows[0].script;
 
-        // 2. Deliver the stored script (which is the next loader or the final code)
+        // 2. Deliver the stored script (which is already obfuscated and watermarked)
         res.setHeader('Content-Type', 'text/plain');
         res.status(200).send(script);
         
