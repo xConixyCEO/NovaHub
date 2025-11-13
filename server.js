@@ -11,7 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000; 
 
 // --- CONFIGURATION ---
-const MAX_LAYERS = 3; // Updated from 20 to 25
+const MAX_LAYERS = 2; // Final setting for the secure nested loader chain
 // ---------------------
 
 // --- CRITICAL: INCREASED PAYLOAD LIMIT TO 100MB ---
@@ -62,7 +62,7 @@ const generateUniqueId = () => {
     return crypto.randomBytes(16).toString('hex');
 };
 
-const runObfuscationStep = (rawLuaCode, preset, timestamp) => {
+const runObfuscationStep = async (rawLuaCode, preset, timestamp) => {
     const tempFile = path.join(__dirname, `temp_${timestamp}.lua`);
     const outputFile = path.join(__dirname, `obf_${timestamp}.lua`);
     
