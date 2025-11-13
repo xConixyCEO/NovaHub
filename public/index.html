@@ -273,7 +273,6 @@
             const element = document.createElement('a');
             element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(code));
             element.setAttribute('download', filename);
-            element.style.display = 'none';
             document.body.appendChild(element);
             element.click();
             document.body.removeChild(element);
@@ -331,19 +330,16 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Check if the response contains the final loader key (from /obfuscate-and-store)
+                    // This route returns the final loader key, not the code itself.
                     if (data.key) {
                         const fullRetrievalUrl = `${window.location.origin}/retrieve/${data.key}`;
                         const loaderScript = `loadstring(game:HttpGet('${fullRetrievalUrl}'))()`;
                         
-                        setStatus('Obfuscation and Storage Complete! Loader Generated.', false);
+                        setStatus('Obfuscation and Storage Complete! Loader Key Generated.', false);
                         output.value = loaderScript;
-                    } else if (data.obfuscatedCode) {
-                        // Fallback if the server only returns obfuscated code (old /obfuscate behavior)
-                        setStatus('Obfuscation Complete!', false);
-                        output.value = data.obfuscatedCode; 
                     } else {
-                         setStatus('Server returned invalid data format.', true);
+                         setStatus('Obfuscation Failed: Server did not return a secure key.', true);
+                         output.value = data.error || 'Check server logs for detailed error.';
                     }
                 } else {
                     const errorMsg = data.error || 'Obfuscation Failed';
@@ -364,5 +360,3 @@
     </script>
 </body>
 </html>
-
-
