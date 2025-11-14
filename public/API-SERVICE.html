@@ -49,7 +49,7 @@
         .card-bg {
             background: var(--purple-bg);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(165, 94, 234, 0.3); /* Using var(--purple-accent) equivalent */
+            border: 1px solid rgba(165, 94, 234, 0.3);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 40px var(--purple-glow);
         }
 
@@ -57,7 +57,7 @@
             text-shadow: 0 0 10px var(--purple-accent);
         }
         .card-glow-inner {
-            box-shadow: inset 0 0 8px rgba(165, 94, 234, 0.2); /* Using var(--purple-accent) equivalent */
+            box-shadow: inset 0 0 8px rgba(165, 94, 234, 0.2);
         }
         
         textarea {
@@ -170,7 +170,6 @@
             Store your scripts and use a password to update them later.
         </p>
 
-        
         <div class="flex mb-8 bg-gray-900 rounded-lg p-1">
             <button id="tab-create" onclick="setView('create')" class="flex-1 btn-tab text-white bg-purple-medium hover:bg-purple-medium/70">
                 <i class="fas fa-plus-circle mr-2"></i> Create New
@@ -180,12 +179,10 @@
             </button>
         </div>
 
-        
         <div id="status" class="text-center font-medium mb-6 min-h-6 text-purple-light">
             Ready to secure your script.
         </div>
 
-        
         <div id="view-create" class="view">
             <div class="mb-4">
                 <label for="lua-input" class="block text-sm font-medium text-purple-light mb-2">Lua Code (Raw Source):</label>
@@ -207,7 +204,6 @@
             </button>
         </div>
 
-        
         <div id="view-load" class="view hidden">
             <div class="mb-4">
                 <label for="load-key" class="block text-sm font-medium text-purple-light mb-2">Script Key (ID):</label>
@@ -224,7 +220,6 @@
             </button>
         </div>
 
-        
         <div id="view-edit" class="view hidden">
             <p class="text-sm font-mono text-purple-light mb-4">
                 Current Key: <span id="current-key-display" class="text-purple-accent font-bold"></span>
@@ -240,7 +235,6 @@
             </button>
         </div>
 
-        <!-- OUTPUT AREA (Always visible after creation/load) -->
         <div id="output-area" class="mt-4 border-t border-purple-accent/50 pt-6">
             <label for="lua-output" class="block text-sm font-medium text-purple-light mb-2">Roblox Loader Script:</label>
             <div class="flex items-stretch gap-4">
@@ -266,11 +260,10 @@
     </div>
 
     <script>
-        
-        const API_BASE_URL = "https://nova.hub.api"; 
+        const API_BASE_URL = ""; 
 
         let state = {
-            view: 'create', 
+            view: 'create',
             scriptKey: '',
             editPassword: '',
             rawScript: 'print("NovaHub Secure Script Initialized!")\n-- Paste your full code here.',
@@ -301,7 +294,6 @@
                 tabCreate.classList.replace('bg-purple-medium', 'bg-gray-900');
                 tabCreate.classList.replace('text-white', 'text-purple-light');
             } else if (newView === 'edit') {
-                // Keep the 'create' tab active visually when editing an existing script
                 tabCreate.classList.replace('bg-gray-900', 'bg-purple-medium');
                 tabCreate.classList.replace('text-purple-light', 'text-white');
                 tabLoad.classList.replace('bg-purple-medium', 'bg-gray-900');
@@ -343,8 +335,14 @@
 
         function updateOutput() {
             const output = document.getElementById('lua-output');
-            if (state.scriptKey && API_BASE_URL) {
-                const fullRetrievalUrl = `${API_BASE_URL}/retrieve/${state.scriptKey}`;
+            if (!API_BASE_URL) {
+                output.value = 'ERROR: API_BASE_URL is empty! Update the variable in the HTML source.';
+                setStatus('CRITICAL: API_BASE_URL is not set!', true);
+                return;
+            }
+
+            if (state.scriptKey) {
+                const fullRetrievalUrl = `${API_BASE_URL.replace(/\/$/, '')}/retrieve/${state.scriptKey}`;
                 output.value = `loadstring(game:HttpGet("${fullRetrievalUrl}"))()`;
             } else {
                 output.value = '';
@@ -361,9 +359,13 @@
             }
         }
 
-        // 
-
         async function handleCreateScript() {
+            if (!API_BASE_URL) {
+                setStatus('CRITICAL: API_BASE_URL is not set!', true);
+                updateOutput();
+                return;
+            }
+
             const inputElement = getInputElement('create');
             const passwordElement = document.getElementById('edit-password');
             const script = inputElement.value;
@@ -378,7 +380,7 @@
             setStatus('Sending script to storage API for creation and obfuscation...', false);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/create-secure-script`, {
+                const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/create-secure-script`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ script: script, password: password }), 
@@ -391,17 +393,16 @@
                     return;
                 }
 
-                
                 state.scriptKey = data.key;
                 state.editPassword = password; 
                 state.rawScript = script;
                 
                 updateOutput();
                 setView('edit'); 
-                setStatus(`Success! Script Key saved. You can now use the loader or save edits.`, false);
+                setStatus(`Success! Script Key saved. ${data.message || ''}`, false);
                 
             } catch (error) {
-                setStatus(`ERROR: Failed to connect to API (${API_BASE_URL}).`, true);
+                setStatus(`ERROR: Failed to connect to API (${API_BASE_URL}). Please check your server status.`, true);
                 console.error('API Fetch error:', error);
             } finally {
                 setButtonState('create-button', false, '<i class="fas fa-lock inline w-5 h-5 mr-2"></i>Create Script & Generate Secure Key');
@@ -409,6 +410,12 @@
         }
 
         async function handleLoadScriptForEdit() {
+            if (!API_BASE_URL) {
+                setStatus('CRITICAL: API_BASE_URL is not set!', true);
+                updateOutput();
+                return;
+            }
+
             const key = document.getElementById('load-key').value;
             const password = document.getElementById('load-password').value;
 
@@ -421,7 +428,7 @@
             setStatus('Requesting raw script from storage...', false);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/get-raw-for-edit`, {
+                const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/get-raw-for-edit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ key: key, password: password }), 
@@ -434,7 +441,6 @@
                     return;
                 }
 
-                
                 state.scriptKey = key;
                 state.editPassword = password;
                 state.rawScript = data.rawScript;
@@ -444,7 +450,7 @@
                 setStatus('Raw script loaded successfully! You can now make changes.', false);
                 
             } catch (error) {
-                setStatus(`ERROR: Failed to connect to API (${API_BASE_URL}).`, true);
+                setStatus(`ERROR: Failed to connect to API (${API_BASE_URL}). Please check your server status.`, true);
                 console.error('API Fetch error:', error);
             } finally {
                 setButtonState('load-button', false, '<i class="fas fa-download inline w-5 h-5 mr-2"></i>Load Raw Script for Editing');
@@ -452,6 +458,12 @@
         }
 
         async function handleSaveChanges() {
+            if (!API_BASE_URL) {
+                setStatus('CRITICAL: API_BASE_URL is not set!', true);
+                updateOutput();
+                return;
+            }
+
             const newScript = document.getElementById('lua-input-edit').value;
             
             if (!newScript.trim()) {
@@ -463,12 +475,12 @@
             setStatus('Saving and re-obfuscating script...', false);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/save-and-obfuscate`, {
+                const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/save-and-obfuscate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         key: state.scriptKey, 
-                        password: state.editPassword, 
+                        password: state.editPassword,
                         newScript: newScript 
                     }), 
                 });
@@ -480,25 +492,21 @@
                     return;
                 }
 
-                
                 state.rawScript = newScript;
                 setStatus(`Success! Script saved and re-obfuscated. ${data.message || ''}`, false);
                 
             } catch (error) {
-                setStatus(`ERROR: Failed to connect to API (${API_BASE_URL}).`, true);
+                setStatus(`ERROR: Failed to connect to API (${API_BASE_URL}). Please check your server status.`, true);
                 console.error('API Fetch error:', error);
             } finally {
                 setButtonState('save-button', false, '<i class="fas fa-save inline w-5 h-5 mr-2"></i>Save Changes & Re-Obfuscate');
             }
         }
 
-
-        
-
         function copyOutput() {
             const output = document.getElementById('lua-output');
-            if (!output.value.trim()) {
-                setStatus("Nothing to copy!", true);
+            if (!output.value.trim() || output.value.includes('ERROR:')) {
+                setStatus("Nothing to copy or an error needs fixing!", true);
                 return;
             }
             output.select();
@@ -527,7 +535,6 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                
                 const currentInput = getInputElement(state.view);
                 if (currentInput) {
                     currentInput.value = e.target.result;
@@ -541,7 +548,6 @@
             reader.readAsText(file);
         }
 
-        
         setView('create'); 
     </script>
 </body>
