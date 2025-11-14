@@ -325,11 +325,12 @@
                 return;
             }
 
-            const inputElement = getInputElement('create');
+            const inputElement = document.getElementById('lua-input');
             const accessPasswordElement = document.getElementById('access-password');
             
             const script = inputElement.value;
-            const accessPassword = accessPasswordElement.value; 
+            const accessPassword = accessPasswordElement.value;
+            const editPassword = accessPassword; 
 
             if (!script.trim() || accessPassword.length < 4) {
                 setStatus('Please provide Lua code and a required Script Access Password (min 4 chars)!', true);
@@ -345,7 +346,8 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         script: script, 
-                        accessPassword: accessPassword 
+                        accessPassword: accessPassword,
+                        editPassword: editPassword 
                     }), 
                 });
 
@@ -394,7 +396,7 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const currentInput = getInputElement(state.view);
+                const currentInput = document.getElementById('lua-input');
                 if (currentInput) {
                     currentInput.value = e.target.result;
                     state.rawScript = e.target.result;
@@ -411,3 +413,4 @@
     </script>
 </body>
 </html>
+
