@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NovaHub API-SERVICE </title>
+    <title>NovaHub API-SERVICE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -186,16 +186,22 @@
         <div id="view-create" class="view">
             <div class="mb-4">
                 <label for="lua-input" class="block text-sm font-medium text-purple-light mb-2">Lua Code (Raw Source):</label>
-                <textarea id="lua-input" rows="12" class="w-full rounded-lg p-4 shadow-inner" placeholder="Paste your Lua code here..."></textarea>
+                <textarea id="lua-input" rows="12" class="w-full rounded-lg p-4 shadow-inner" placeholder="print(&quot;NovaHub Secure Script Initialized!&quot;)\n-- Paste your full code here."></textarea>
             </div>
             
-            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
                 <label for="file-upload" class="btn-secondary btn-base w-full sm:w-auto text-sm">
                     <input type="file" id="file-upload" accept=".lua,.txt" onchange="uploadCode(event)">
                     <i class="fas fa-upload mr-2"></i> Upload Code
                 </label>
-                <input type="password" id="edit-password" class="w-full sm:w-1/2 rounded-lg p-3 text-sm bg-gray-800 text-white border border-purple-accent/50 focus:border-purple-accent focus:ring-1 focus:ring-purple-accent" placeholder="Enter New Edit Password (Min 4 Chars)">
+                <input type="password" id="edit-password" class="w-full sm:w-1/2 rounded-lg p-3 text-sm bg-gray-800 text-white border border-purple-accent/50 focus:border-purple-accent focus:ring-1 focus:ring-purple-accent" placeholder="Enter Edit Password (Required, Min 4 Chars)">
             </div>
+
+            
+            <div class="mb-6">
+                 <input type="password" id="access-password" class="w-full rounded-lg p-3 text-sm bg-gray-800 text-white border border-purple-accent/50 focus:border-purple-accent focus:ring-1 focus:ring-purple-accent" placeholder="Optional: Access Password for Direct Browser Link">
+            </div>
+            
             
             <button onclick="handleCreateScript()" id="create-button"
                 class="btn-primary btn-base w-full text-sm disabled:opacity-50 mb-8">
@@ -260,7 +266,7 @@
     </div>
 
     <script>
-        const API_BASE_URL = "https://novahub-zd14.onrender.com"; 
+        const API_BASE_URL = "https://novahub-zd14.onrender.com/"; 
 
         let state = {
             view: 'create',
@@ -283,7 +289,7 @@
                 targetView.classList.remove('hidden');
             }
 
-            if (newView === 'create') {
+            if (newView === 'create' || newView === 'edit') {
                 tabCreate.classList.replace('bg-gray-900', 'bg-purple-medium');
                 tabCreate.classList.replace('text-purple-light', 'text-white');
                 tabLoad.classList.replace('bg-purple-medium', 'bg-gray-900');
@@ -293,11 +299,9 @@
                 tabLoad.classList.replace('text-purple-light', 'text-white');
                 tabCreate.classList.replace('bg-purple-medium', 'bg-gray-900');
                 tabCreate.classList.replace('text-white', 'text-purple-light');
-            } else if (newView === 'edit') {
-                tabCreate.classList.replace('bg-gray-900', 'bg-purple-medium');
-                tabCreate.classList.replace('text-purple-light', 'text-white');
-                tabLoad.classList.replace('bg-purple-medium', 'bg-gray-900');
-                tabLoad.classList.replace('text-white', 'text-purple-light');
+            } 
+            
+            if (newView === 'edit') {
                 document.getElementById('current-key-display').textContent = state.scriptKey;
                 document.getElementById('lua-input-edit').value = state.rawScript;
             }
@@ -312,6 +316,8 @@
             } else {
                 statusElement.classList.add('text-green-400');
             }
+            statusElement.classList.remove('animate-pulse-once');
+            void statusElement.offsetWidth; 
             statusElement.classList.add('animate-pulse-once');
         }
 
@@ -342,10 +348,10 @@
             }
 
             if (state.scriptKey) {
-                const fullRetrievalUrl = `${API_BASE_URL.replace(/\/$/, '')}/retrieve/${state.scriptKey}`;
+                const fullRetrievalUrl = `${API_BASE_URL.replace(/\/$/, '')}/retrieve/${state.scriptKey}`; 
                 output.value = `loadstring(game:HttpGet("${fullRetrievalUrl}"))()`;
             } else {
-                output.value = '';
+                output.value = 'The secure loadstring will appear here after creation or loading.';
             }
         }
 
@@ -367,12 +373,15 @@
             }
 
             const inputElement = getInputElement('create');
-            const passwordElement = document.getElementById('edit-password');
+            const editPasswordElement = document.getElementById('edit-password');
+            const accessPasswordElement = document.getElementById('access-password');
+            
             const script = inputElement.value;
-            const password = passwordElement.value;
+            const editPassword = editPasswordElement.value;
+            const accessPassword = accessPasswordElement.value;
 
-            if (!script.trim() || password.length < 4) {
-                setStatus('Please provide Lua code and a password of at least 4 characters!', true);
+            if (!script.trim() || editPassword.length < 4) {
+                setStatus('Please provide Lua code and a required Edit Password (min 4 chars)!', true);
                 return;
             }
             
@@ -383,23 +392,27 @@
                 const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}/create-secure-script`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ script: script, password: password }), 
+                    body: JSON.stringify({ 
+                        script: script, 
+                        editPassword: editPassword, 
+                        accessPassword: accessPassword
+                    }), 
                 });
 
                 const data = await response.json();
 
                 if (!response.ok) {
-                    setStatus(`ERROR: Creation failed. ${data.error || 'API failed.'}`, true);
+                    setStatus(`ERROR: Creation failed. ${data.error || 'API failed.'}`, true); 
                     return;
                 }
 
                 state.scriptKey = data.key;
-                state.editPassword = password; 
+                state.editPassword = editPassword; 
                 state.rawScript = script;
                 
                 updateOutput();
                 setView('edit'); 
-                setStatus(`Success! Script Key saved. ${data.message || ''}`, false);
+                setStatus(`Success! Script Key saved. Edit Password: **${editPassword}**. Access Password: **${data.accessPassword || 'None'}**. ${data.message || ''}`, false);
                 
             } catch (error) {
                 setStatus(`ERROR: Failed to connect to API (${API_BASE_URL}). Please check your server status.`, true);
@@ -505,9 +518,8 @@
 
         function copyOutput() {
             const output = document.getElementById('lua-output');
-            if (!output.value.trim() || output.value.includes('ERROR:')) {
-                setStatus("Nothing to copy or an error needs fixing!", true);
-                return;
+            if (!output.value.trim() || output.value.includes('ERROR:') || output.value.includes('loadstring(game:HttpGet')) {
+                setStatus("Copied to clipboard!", false); 
             }
             output.select();
             output.setSelectionRange(0, 99999); 
@@ -524,12 +536,6 @@
         function uploadCode(event) {
             const file = event.target.files[0];
             if (!file) {
-                return;
-            }
-
-            const validTypes = ['text/plain', 'application/x-lua', ''];
-            if (!validTypes.includes(file.type) && !file.name.endsWith('.lua') && !file.name.endsWith('.txt')) {
-                setStatus(`Unsupported file type: ${file.name}. Please upload a .lua or .txt file.`, true);
                 return;
             }
 
@@ -552,4 +558,3 @@
     </script>
 </body>
 </html>
-
