@@ -374,15 +374,46 @@ app.post('/delete-script', async (req, res) => {
 
 
 // ====================================================
-// === 7. SECURE ACCESS / RETRIEVAL ENDPOINTS ===
+// === 7. SCRIPT RETRIEVAL ENDPOINTS ===
 // ====================================================
 
-// GET /retrieve/:key: Conditional access point
+/**
+ * [GET] SIMPLE RETRIEVAL (/api/retrieve/:key)
+ * This is the route for the ONE-LINE loadstring (loadstring(game:HttpGet(".../api/retrieve/KEY"))()). 
+ * It bypasses all security checks and serves the obfuscated script directly.
+ */
+app.get('/api/retrieve/:key', async (req, res) => {
+    const scriptKey = req.params.key;
+    
+    try {
+        const result = await pool.query(
+            'SELECT obfuscated_script FROM scripts WHERE key = $1', 
+            [scriptKey]
+        );
+
+        if (result.rows.length === 0) {
+            res.setHeader('Content-Type', 'text/plain');
+            return res.status(404).send('-- Error: Script not found (/api/retrieve).');
+        }
+
+        console.log(`Script ${scriptKey} retrieved via simple API endpoint (SECURITY BYPASSED).`);
+        res.setHeader('Content-Type', 'text/plain');
+        return res.status(200).send(result.rows[0].obfuscated_script);
+
+    } catch (error) {
+        console.error('Database error during simple API retrieval:', error.stack);
+        res.setHeader('Content-Type', 'text/plain');
+        return res.status(500).send('-- Error: Internal Server Failure.');
+    }
+});
+
+
+// GET /retrieve/:key: Conditional access point (For the multi-line loader/browser access)
 app.get('/retrieve/:key', async (req, res) => {
     const scriptKey = req.params.key;
     const isRobloxClient = req.headers['x-roblox-client'] === 'True'; // Check for custom header
 
-    // 1. CRITICAL FIX: If request sends the custom header, serve the script directly.
+    // 1. Executor Bypass Check: If request sends the custom header, serve the script directly.
     if (isRobloxClient) {
         try {
             const result = await pool.query(
