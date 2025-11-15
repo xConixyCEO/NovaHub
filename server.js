@@ -192,6 +192,7 @@ app.post('/create-secure-script', async (req, res) => {
             key: scriptKey,
             editPassword: editPassword, 
             accessPassword: accessPassword, 
+            // Note: The /retrieve route now needs the custom header to work for the loader!
             loaderUrl: `/retrieve/${scriptKey}`
         });
 
@@ -379,11 +380,10 @@ app.post('/delete-script', async (req, res) => {
 // GET /retrieve/:key: Conditional access point
 app.get('/retrieve/:key', async (req, res) => {
     const scriptKey = req.params.key;
-    const userAgent = req.headers['user-agent'];
+    const isRobloxClient = req.headers['x-roblox-client'] === 'True'; // Check for custom header
 
-    // 1. CRITICAL FIX: If request comes from Roblox, serve the script directly.
-    // Roblox executors often send a User-Agent containing the string 'Roblox'.
-    if (userAgent && userAgent.includes('Roblox')) {
+    // 1. CRITICAL FIX: If request sends the custom header, serve the script directly.
+    if (isRobloxClient) {
         try {
             const result = await pool.query(
                 'SELECT obfuscated_script FROM scripts WHERE key = $1', 
@@ -405,7 +405,7 @@ app.get('/retrieve/:key', async (req, res) => {
         }
     }
 
-    // 2. If request is from a browser (or any other non-Roblox client), check for access password
+    // 2. If request is from a browser (or any other client missing the header), check for access password
     try {
         const result = await pool.query(
             'SELECT access_password_hash, obfuscated_script FROM scripts WHERE key = $1', 
