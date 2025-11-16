@@ -19,7 +19,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }));
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     // Required for cloud databases like Render
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: true } // Should typically be true in production
 });
 
 // Define constants
@@ -96,6 +96,7 @@ const runObfuscationStep = async (rawLuaCode) => {
     }
 
     // 2. Execute obfuscator
+    // IMPORTANT: Ensure 'lua' command and 'src/cli.lua' are accessible in your environment
     const command = `lua ${SCRIPT_LUA_PATH} --preset ${OBFUSCATOR_PRESET} --out ${outputFile} ${tempFile}`;
     
     return new Promise((resolve) => {
@@ -139,7 +140,7 @@ const runObfuscationStep = async (rawLuaCode) => {
 
 
 // =======================================================
-// === 1. OBFUSCATE ROUTE (For Raw Output Preview) ======
+// === 1. OBFUSCATE ROUTE (For Raw Output Preview) =======
 // =======================================================
 app.post('/obfuscate', async (req, res) => {
     const rawLuaCode = req.body.code;
@@ -160,7 +161,7 @@ app.post('/obfuscate', async (req, res) => {
 
 
 // ==========================================================
-// === 2. CREATE SECURE SCRIPT 
+// === 2. CREATE SECURE SCRIPT ==============================
 // ==========================================================
 app.post('/create-secure-script', async (req, res) => {
     const rawLuaCode = req.body.script; 
@@ -192,8 +193,8 @@ app.post('/create-secure-script', async (req, res) => {
             key: scriptKey,
             editPassword: editPassword, 
             accessPassword: accessPassword, 
-            // Note: The /retrieve route now needs the custom header to work for the loader!
-            loaderUrl: `/retrieve/${scriptKey}`
+            // UPDATED to use the secured API path as the loader URL
+            loaderUrl: `/api/retrieve/${scriptKey}`
         });
 
     } catch (error) {
@@ -374,46 +375,20 @@ app.post('/delete-script', async (req, res) => {
 
 
 // ====================================================
-// === 7. SCRIPT RETRIEVAL ENDPOINTS ===
+// === 7. SCRIPT RETRIEVAL ENDPOINTS (CONDITIONAL) ====
 // ====================================================
 
 /**
- * [GET] SIMPLE RETRIEVAL (/api/retrieve/:key)
- * This is the route for the ONE-LINE loadstring (loadstring(game:HttpGet(".../api/retrieve/KEY"))()). 
- * It bypasses all security checks and serves the obfuscated script directly.
+ * [GET] CONDITIONAL RETRIEVAL (/api/retrieve/:key) - Public Loadstring Path
+ * - Roblox Executor: Serves the script directly.
+ * - Browser: Checks for access password and serves secure-access.html or the script.
  */
 app.get('/api/retrieve/:key', async (req, res) => {
     const scriptKey = req.params.key;
-    
-    try {
-        const result = await pool.query(
-            'SELECT obfuscated_script FROM scripts WHERE key = $1', 
-            [scriptKey]
-        );
+    // Check for the custom header sent by the Roblox executor
+    const isRobloxClient = req.headers['x-roblox-client'] === 'True'; 
 
-        if (result.rows.length === 0) {
-            res.setHeader('Content-Type', 'text/plain');
-            return res.status(404).send('-- Error: Script not found (/api/retrieve).');
-        }
-
-        console.log(`Script ${scriptKey} retrieved via simple API endpoint (SECURITY BYPASSED).`);
-        res.setHeader('Content-Type', 'text/plain');
-        return res.status(200).send(result.rows[0].obfuscated_script);
-
-    } catch (error) {
-        console.error('Database error during simple API retrieval:', error.stack);
-        res.setHeader('Content-Type', 'text/plain');
-        return res.status(500).send('-- Error: Internal Server Failure.');
-    }
-});
-
-
-// GET /retrieve/:key: Conditional access point (For the multi-line loader/browser access)
-app.get('/retrieve/:key', async (req, res) => {
-    const scriptKey = req.params.key;
-    const isRobloxClient = req.headers['x-roblox-client'] === 'True'; // Check for custom header
-
-    // 1. Executor Bypass Check: If request sends the custom header, serve the script directly.
+    // 1. Executor Bypass Check
     if (isRobloxClient) {
         try {
             const result = await pool.query(
@@ -425,7 +400,8 @@ app.get('/retrieve/:key', async (req, res) => {
                 res.setHeader('Content-Type', 'text/plain');
                 return res.status(404).send('-- Error: Script not found or has expired.');
             }
-            // Serve the raw Lua script directly to the executor
+            
+            console.log(`Script ${scriptKey} retrieved by Roblox executor (Bypass).`);
             res.setHeader('Content-Type', 'text/plain');
             return res.status(200).send(result.rows[0].obfuscated_script);
             
@@ -436,7 +412,7 @@ app.get('/retrieve/:key', async (req, res) => {
         }
     }
 
-    // 2. If request is from a browser (or any other client missing the header), check for access password
+    // 2. If request is from a browser, check for access password
     try {
         const result = await pool.query(
             'SELECT access_password_hash, obfuscated_script FROM scripts WHERE key = $1', 
@@ -444,16 +420,19 @@ app.get('/retrieve/:key', async (req, res) => {
         );
 
         if (result.rows.length === 0) {
+            // Script not found, serve the custom 404 page
             return res.status(404).sendFile(path.join(__dirname, 'public', '404.html')); 
         }
 
         const accessPasswordHash = result.rows[0].access_password_hash;
 
         if (accessPasswordHash) {
-            // Script requires a password, serve the HTML prompt page
+            // Script requires a password, serve the public ACCESS password prompt page
+            console.log(`Script ${scriptKey} requires access password. Serving secure-access.html.`);
             return res.sendFile(path.join(__dirname, 'public', 'secure-access.html'));
         } else {
             // No password required, serve the script directly (obfuscated)
+            console.log(`Script ${scriptKey} retrieved by browser (No Password).`);
             res.setHeader('Content-Type', 'text/plain');
             return res.status(200).send(result.rows[0].obfuscated_script);
         }
@@ -464,7 +443,7 @@ app.get('/retrieve/:key', async (req, res) => {
 });
 
 // Endpoint to verify access password from the secure-access.html page
-app.post('/verify-access/:key', async (req, res) => {
+app.post('/api/verify-access/:key', async (req, res) => {
     const scriptKey = req.params.key;
     const { accessPassword } = req.body;
 
@@ -484,7 +463,6 @@ app.post('/verify-access/:key', async (req, res) => {
 
         const storedHash = result.rows[0].access_password_hash;
         
-        // If there is no stored hash, but a password was sent, it's an incorrect attempt
         if (!storedHash) {
              return res.status(401).json({ error: 'Invalid password. This script may not require one.' });
         }
@@ -510,7 +488,7 @@ app.post('/verify-access/:key', async (req, res) => {
 });
 
 // Endpoint to retrieve actual content after token verification
-app.get('/retrieve-content/:key/:token', async (req, res) => {
+app.get('/api/retrieve-content/:key/:token', async (req, res) => {
     const scriptKey = req.params.key;
     const tempToken = req.params.token;
 
