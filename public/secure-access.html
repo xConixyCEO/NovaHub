@@ -3,193 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Access Required</title>
+    <title>Secure Access | NovaHub</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --dark-blue-bg: #0D1B2A;
-            --medium-blue-card: #1B263B;
-            --light-blue-accent: #415A77;
-            --white-text: #E0E1DD;
-            --success-green: #2ECC71;
-            --error-red: #E74C3C;
-            --glow-color: #6a9bd8; 
+            --purple-dark: #0f001f;
+            --purple-bg: #1e0037;
+            --purple-medium: #3a006b;
+            --purple-accent: #A55EEA;
+            --purple-glow: #a55eea70;
+            --text-main: #E5E7EB;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Space Grotesk', sans-serif;
-            transition: background-color 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.3s;
-        }
-        
         body {
-            background: linear-gradient(135deg, var(--dark-blue-bg) 0%, #000000 100%);
-            color: var(--white-text);
-            min-height: 100vh;
+            font-family: 'Space Grotesk', sans-serif;
+            background: radial-gradient(circle at top left, var(--purple-dark) 0%, #000000 100%);
+            color: var(--text-main);
             display: flex;
-            align-items: center;
             justify-content: center;
-            position: relative;
+            align-items: center;
+            min-height: 100vh;
             padding: 1rem;
         }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><defs><filter id="f1"><feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" result="t1"/><feColorMatrix in="t1" type="saturate" values="0.2"/></filter></defs><rect width="100%" height="100%" fill="none"/><rect width="100%" height="100%" filter="url(%23f1)" opacity="0.05"/></svg>') repeat;
-            pointer-events: none;
-            z-index: -1;
-            opacity: 0.8;
+        .card {
+            background: var(--purple-bg);
+            border: 1px solid rgba(165, 94, 234, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 40px var(--purple-glow);
         }
-
-        .card-container {
-            background: var(--medium-blue-card);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(65, 90, 119, 0.5); 
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 40px rgba(106, 155, 216, 0.4); 
-            border-radius: 12px;
-            padding: 2.5rem;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
+        .btn-primary {
+            background: linear-gradient(90deg, var(--purple-accent) 0%, var(--purple-medium) 100%);
+            border: 1px solid var(--purple-accent);
+            padding: 0.75rem 1.5rem;
+            font-weight: 700;
+            border-radius: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-
-        input[type="password"] {
-            background: var(--dark-blue-bg);
-            border: 1px solid var(--light-blue-accent);
-            color: var(--white-text);
-            padding: 0.75rem 1rem;
-            border-radius: 6px;
-            width: 100%;
-            margin-bottom: 1.5rem;
-            font-size: 1rem;
-        }
-        input[type="password"]:focus {
-            outline: none;
-            border-color: var(--glow-color);
-            box-shadow: 0 0 10px rgba(106, 155, 216, 0.6);
-        }
-
-        .access-button {
-            background: linear-gradient(90deg, #6a9bd8 0%, #415a77 100%); 
-            color: white;
-            padding: 0.8rem 2rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            border: none;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-        .access-button:hover {
+        .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(106, 155, 216, 0.5);
+            box-shadow: 0 5px 15px var(--purple-glow);
         }
-        .access-button:disabled {
-            background: #5a6d80;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+        .input-field {
+            background-color: #0d001e;
+            border: 1px solid #3a006b;
+            color: var(--text-main);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            transition: border-color 0.2s;
         }
-
-        .status-message {
-            margin-top: 1.5rem;
-            font-size: 0.9rem;
-            color: var(--white-text);
+        .input-field:focus {
+            outline: none;
+            border-color: var(--purple-accent);
+            box-shadow: 0 0 0 2px rgba(165, 94, 234, 0.5);
         }
-        .status-message.error {
-            color: var(--error-red);
-            font-weight: bold;
-        }
-        .status-message.success {
-            color: var(--success-green);
-            font-weight: bold;
+        .lua-output {
+            background-color: #0d001e;
+            border: 1px solid #3a006b;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            max-height: 60vh;
+            white-space: pre-wrap;
         }
     </style>
 </head>
 <body>
-    <div class="card-container">
-        <h2 class="text-2xl font-bold mb-6 flex items-center justify-center">
-            <i class="fa-solid fa-lock text-lg mr-3"></i> 
-            Secure Editor Access
-        </h2>
-        <p class="text-white-text mb-4 text-sm">Enter the **Edit Password** to manage and update this script.</p>
-        
-        <input type="password" id="edit-password" placeholder="Enter Edit Password" autocomplete="off" />
-        <button class="access-button" id="submit-button" onclick="submitPassword()">
-            Unlock Editor
-        </button>
-        
-        <div id="status-message" class="status-message"></div>
+    <div id="app-container" class="card p-8 rounded-xl shadow-xl w-full max-w-lg">
+        <h1 class="text-3xl font-bold mb-4 text-center">
+            <span class="text-purple-accent">SECURE</span> SCRIPT ACCESS
+        </h1>
+        <p class="text-gray-400 text-center mb-6">
+            This Lua script is protected by an access password. Please enter the password to retrieve the content.
+        </p>
+
+        <form id="accessForm" class="space-y-4">
+            <div>
+                <label for="accessPassword" class="block text-sm font-medium mb-2">Access Password</label>
+                <input 
+                    type="password" 
+                    id="accessPassword" 
+                    class="input-field" 
+                    placeholder="Enter Access Password" 
+                    required>
+            </div>
+            <button type="submit" id="submitBtn" class="btn-primary w-full flex items-center justify-center">
+                <span id="buttonText">ACCESS SCRIPT</span>
+                <svg id="spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </form>
+
+        <div id="statusMessage" class="mt-6 text-center text-sm font-medium h-4"></div>
+
+        <div id="scriptOutput" class="hidden mt-6">
+            <h2 class="text-xl font-bold mb-3 text-purple-accent">Obfuscated Script Content</h2>
+            <pre id="luaCodeDisplay" class="lua-output text-xs"></pre>
+            <button onclick="copyToClipboard()" class="btn-primary mt-4 w-full text-sm">
+                COPY TO CLIPBOARD
+            </button>
+        </div>
     </div>
 
     <script>
-        const API_BASE_URL = window.location.origin;
+        const form = document.getElementById('accessForm');
+        const passwordInput = document.getElementById('accessPassword');
+        const statusDiv = document.getElementById('statusMessage');
+        const scriptOutputDiv = document.getElementById('scriptOutput');
+        const luaCodeDisplay = document.getElementById('luaCodeDisplay');
+        const submitBtn = document.getElementById('submitBtn');
+        const buttonText = document.getElementById('buttonText');
+        const spinner = document.getElementById('spinner');
 
-        function getScriptKey() {
-            return window.location.pathname.split('/').pop();
-        }
+        const pathParts = window.location.pathname.split('/');
+        const scriptKey = pathParts[pathParts.length - 1];
+        
+        const VERIFY_URL = `/api/verify-access/${scriptKey}`;
 
-        async function submitPassword() {
-            const passwordInput = document.getElementById('edit-password');
-            const submitButton = document.getElementById('submit-button');
-            const statusDiv = document.getElementById('status-message');
-            const scriptKey = getScriptKey();
+        const displayStatus = (message, isError = false) => {
+            statusDiv.textContent = message;
+            statusDiv.className = `mt-6 text-center text-sm font-medium h-4 ${isError ? 'text-red-400' : 'text-green-400'}`;
+        };
 
-            const password = passwordInput.value;
+        const setLoading = (isLoading) => {
+            submitBtn.disabled = isLoading;
+            buttonText.classList.toggle('hidden', isLoading);
+            spinner.classList.toggle('hidden', !isLoading);
+        };
 
-            if (!password.trim()) {
-                statusDiv.className = 'status-message error';
-                statusDiv.textContent = 'Please enter a password.';
-                return;
+        const getScriptContent = async (tempToken) => {
+            const CONTENT_URL = `/api/retrieve-content/${scriptKey}/${tempToken}`;
+            
+            try {
+                const response = await fetch(CONTENT_URL);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Failed to retrieve script content.');
+                }
+                
+                const scriptText = await response.text();
+                
+                form.classList.add('hidden');
+                statusDiv.classList.add('hidden');
+                scriptOutputDiv.classList.remove('hidden');
+                luaCodeDisplay.textContent = scriptText;
+                
+                displayStatus('Access successful! Script loaded.', false);
+                
+            } catch (error) {
+                console.error('Error fetching script content:', error);
+                displayStatus(`Error retrieving content: ${error.message || 'Check console.'}`, true);
+                setLoading(false);
             }
+        };
 
-            submitButton.disabled = true;
-            statusDiv.className = 'status-message';
-            statusDiv.textContent = 'Verifying credentials...';
+        const handleSubmit = async (event) => {
+            event.preventDefault();
+            
+            const accessPassword = passwordInput.value;
+            displayStatus('Verifying password...', false);
+            setLoading(true);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/get-raw-for-edit`, {
+                const response = await fetch(VERIFY_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: scriptKey, password: password })
+                    body: JSON.stringify({ accessPassword })
                 });
 
                 const data = await response.json();
 
-                if (response.ok && data.rawScript) {
-                    statusDiv.className = 'status-message success';
-                    statusDiv.textContent = 'Access granted! Redirecting to Editor...';
-                    
-                    window.location.href = `${API_BASE_URL}/editor.html?key=${scriptKey}&password=${password}`;
-
-                } else {
-                    statusDiv.className = 'status-message error';
-                    statusDiv.textContent = data.error || 'Invalid Edit Password or Key.';
+                if (!response.ok) {
+                    displayStatus(data.error || 'Verification failed.', true);
+                    setLoading(false);
+                    return;
                 }
-            } catch (error) {
-                statusDiv.className = 'status-message error';
-                statusDiv.textContent = 'Error connecting to the server.';
-                console.error('Frontend Error:', error);
-            } finally {
-                submitButton.disabled = false;
-            }
-        }
+                
+                await getScriptContent(data.tempToken);
 
-        
-        document.getElementById('edit-password').addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
-                submitPassword();
+            } catch (error) {
+                console.error('Network or system error:', error);
+                displayStatus('A network error occurred. Please try again.', true);
+                setLoading(false);
             }
-        });
+        };
+
+        const copyToClipboard = () => {
+            const textToCopy = luaCodeDisplay.textContent;
+            
+            const el = document.createElement('textarea');
+            el.value = textToCopy;
+            el.setAttribute('readonly', '');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            el.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    displayStatus('Script copied to clipboard!', false);
+                } else {
+                    displayStatus('Failed to copy. Please manually select and copy.', true);
+                }
+            } catch (err) {
+                displayStatus('Failed to copy. Please manually select and copy.', true);
+            }
+            
+            document.body.removeChild(el);
+        };
+
+        form.addEventListener('submit', handleSubmit);
     </script>
 </body>
 </html>
