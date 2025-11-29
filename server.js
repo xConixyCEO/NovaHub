@@ -42,15 +42,16 @@ pool.connect((err, client, done) => {
 });
 
 /* ---------------- Constants ---------------- */
-const WATERMARK = "--[[ v0.1.0 NovaHub Lua Obfuscator ]] ";
+const WATERMARK = "--[[ </> discord.gg/V49Pcq4dDy @SlayersonV4 ]] ";
 const FALLBACK_WATERMARK = "--[[ OBFUSCATION FAILED: Returning raw script. Check your Lua syntax. ]] ";
+const SCRIPT_LUA_PATH = path.join(__dirname, 'src', 'cli.lua');
 
 /* ---------------- Helper Functions ---------------- */
 const generateId = () => crypto.randomBytes(16).toString("hex");
 const applyFallback = (raw) => `${FALLBACK_WATERMARK}\n${raw}`;
 
 /* -----------------------------------------------------
-     FIXED OBFUSCATION HANDLER (WORKING VERSION)
+     FULL OBFUSCATOR FUNCTION (Supports presets)
 ------------------------------------------------------ */
 async function runObfuscator(rawLua, preset = "Medium") {
     const timestamp = Date.now();
@@ -61,32 +62,27 @@ async function runObfuscator(rawLua, preset = "Medium") {
     let finalCode = "";
 
     try {
-        fs.writeFileSync(tempFile, rawLua, 'utf8');
+        fs.writeFileSync(tempFile, rawLua, "utf8");
 
-        const command = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
+        const command = `lua ${SCRIPT_LUA_PATH} --preset ${preset} --out ${outputFile} ${tempFile}`;
 
         await new Promise(resolve => {
             exec(command, (error, stdout, stderr) => {
-
-                // Remove input file early
                 try { fs.unlinkSync(tempFile); } catch {}
 
-                // 🔥 Only treat REAL errors as failure — stderr is ignored
                 if (error) {
-                    console.error("Lua error:", error.message);
+                    console.error("Lua execution error:", error);
                     finalCode = applyFallback(rawLua);
                     return resolve();
                 }
 
-                // If no output file generated → fail
                 if (!fs.existsSync(outputFile)) {
-                    console.error("Obfuscator produced no output file.");
+                    console.error("Obfuscator did not generate output.");
                     finalCode = applyFallback(rawLua);
                     return resolve();
                 }
 
-                // Success
-                finalCode = fs.readFileSync(outputFile, 'utf8');
+                finalCode = fs.readFileSync(outputFile, "utf8");
                 finalCode = WATERMARK + finalCode;
 
                 try { fs.unlinkSync(outputFile); } catch {}
@@ -97,34 +93,43 @@ async function runObfuscator(rawLua, preset = "Medium") {
         });
 
     } catch (err) {
-        console.error("Internal execution error:", err);
+        console.error("Internal obfuscator error:", err);
         finalCode = applyFallback(rawLua);
-        success = false;
     }
 
     return { success, code: finalCode };
 }
 
-/* -----------------------------------------------------
-                POST /obfuscate  (BOT USES THIS)
------------------------------------------------------- */
-app.post("/obfuscate", async (req, res) => {
-    const rawLua = req.body.code;
+/* =======================================================
+       MAIN OBFUSCATION ENDPOINT — NOW /obfuscate
+======================================================== */
+app.post('/obfuscate', async (req, res) => {
+    const rawLuaCode = req.body.code;
+    const preset = req.body.preset || "Medium";
 
-    if (!rawLua)
-        return res.status(400).json({ error: "Missing 'code' in request body." });
+    if (!rawLuaCode || typeof rawLuaCode !== "string") {
+        return res.status(400).json({ error: 'A "code" field containing Lua script is required.' });
+    }
 
-    const { success, code } = await runObfuscator(rawLua, "Medium");
+    const result = await runObfuscator(rawLuaCode, preset);
 
-    if (!success)
-        console.warn("⚠ Obfuscation failed — fallback returned.");
-
-    res.status(200).json({ obfuscatedCode: code });
+    if (result.success) {
+        res.status(200).json({
+            obfuscatedCode: result.code,
+            success: true
+        });
+    } else {
+        res.status(422).json({
+            error: "Obfuscation Failed",
+            obfuscatedCode: result.code,
+            success: false
+        });
+    }
 });
 
-/* -----------------------------------------------------
-       POST /obfuscate-and-store (Loader system)
------------------------------------------------------- */
+/* =======================================================
+   OBFUSCATE + STORE INTO DATABASE
+======================================================== */
 app.post("/obfuscate-and-store", async (req, res) => {
     const raw = req.body.script;
 
@@ -142,8 +147,7 @@ app.post("/obfuscate-and-store", async (req, res) => {
         );
 
         res.status(201).json({
-            message: success ? "Obfuscation + storage complete." :
-                "Stored, but obfuscation failed.",
+            message: success ? "Obfuscation + storage complete." : "Stored, but obfuscation failed.",
             key
         });
 
@@ -153,12 +157,13 @@ app.post("/obfuscate-and-store", async (req, res) => {
     }
 });
 
-/* -----------------------------------------------------
-                GET /retrieve/:key
------------------------------------------------------- */
+/* =======================================================
+         ROBLOX LOADER — GET STORED OBFUSCATED SCRIPT
+======================================================== */
 app.get("/retrieve/:key", async (req, res) => {
     const key = req.params.key;
 
+    // Roblox-only rule
     if (!req.headers["user-agent"]?.includes("Roblox")) {
         res.setHeader("Content-Type", "text/plain");
         return res.status(403).send("-- Access Denied.");
@@ -184,8 +189,8 @@ app.get("/retrieve/:key", async (req, res) => {
 /* -----------------------------------------------------
                       ROOT
 ------------------------------------------------------ */
-app.get("/", (req, res) => {
-    res.send("NovaHub Backend is running.");
+app.get('/', (req, res) => {
+    res.redirect('/index.html');
 });
 
 /* -----------------------------------------------------
