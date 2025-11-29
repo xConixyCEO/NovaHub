@@ -25,7 +25,7 @@ const CLIENT_ID = '1444160895872663615';
 // --- CLIENT SETUP ---
 const client = new Client({
     intents: [
-        // FIX: Corrected typo from GatewayIntentIntentBits to GatewayIntentBits
+        // This is the fixed line (GatewayIntentBits.Guilds)
         GatewayIntentBits.Guilds,
     ],
     partials: [Partials.Channel],
@@ -102,9 +102,12 @@ client.on('interactionCreate', async interaction => {
             
             let errorMessage;
             
-            // Check for the specific syntax error thrown by obfuscator.js
+            // This logic relies on the specific error message strings thrown in obfuscator.js
             if (error.message.includes('Invalid Lua syntax')) {
                  errorMessage = '❌ Error: Invalid Lua syntax. Please check your code.';
+            } else if (error.message.includes('Internal obfuscation tool error: Failed to execute Lua command.')) {
+                 // This catches the new generic execution error from the updated obfuscator.js
+                 errorMessage = '❌ Error: The obfuscation tool could not be executed. This is likely a configuration issue on the server side.';
             } else {
                  errorMessage = '❌ Error: An internal processing error occurred. Please try again or contact a bot administrator.';
             }
