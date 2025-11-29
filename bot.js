@@ -1,7 +1,7 @@
 require("dotenv").config();
 const {
   Client,
-  Intents, // NOTE: Intents.FLAGS is deprecated. This is imported for backwards compatibility, but we use string literals below.
+  // NOTE: Intents are now passed as PascalCase strings, avoiding the deprecated Intents.FLAGS syntax.
   MessageEmbed,
   MessageActionRow,
   MessageSelectMenu,
