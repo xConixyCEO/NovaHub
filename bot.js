@@ -25,8 +25,8 @@ const CLIENT_ID = '1444160895872663615';
 // --- CLIENT SETUP ---
 const client = new Client({
     intents: [
-        // Only need Guilds for slash commands
-        GatewayIntentIntentBits.Guilds,
+        // FIX: Corrected typo from GatewayIntentIntentBits to GatewayIntentBits
+        GatewayIntentBits.Guilds,
     ],
     partials: [Partials.Channel],
 });
