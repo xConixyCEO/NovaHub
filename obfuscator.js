@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Constants from your original file
-const WATERMARK = "--[[ v0.1.0 NovaHub Lua Obfuscator ]] "; 
+const WATERMARK = "\n-- </> v0.1.0 NovaHub Lua Obfuscator  "; 
 const FALLBACK_WATERMARK = "--[[ OBFUSCATION FAILED: Returning raw script. Check your Lua syntax. ]] ";
 
 const applyFallback = (rawCode) => {
