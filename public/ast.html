@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Advanced AST Cleaner — AST Frontend</title>
+
+<style>
+  :root{
+    --bg:#071024;
+    --card:#0b1220;
+    --muted:#98a8bf;
+    --accent:#38bdf8;
+    --accent-2:#16a34a;
+    --glass: rgba(255,255,255,0.03);
+    --danger:#ff6b6b;
+  }
+  html,body{height:100%; margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial;}
+  body{
+    background: linear-gradient(180deg,#071024 0%, #0f1724 100%);
+    color:#e6eef8;
+    padding:28px;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  .container{
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  header {
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:16px;
+  }
+  header h1{margin:0;font-size:20px}
+  header p{margin:0;color:var(--muted);font-size:13px}
+
+  .card{background:var(--card); padding:16px; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.5);}
+
+  .grid{display:grid; grid-template-columns: 1fr 360px; gap:16px;}
+  @media (max-width:980px){ .grid{ grid-template-columns: 1fr; } }
+
+  label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px;}
+  textarea{width:100%; min-height:260px; background:#061427; color:#e6eef8; border:1px solid rgba(255,255,255,0.03); padding:12px; border-radius:8px; font-family:monospace; font-size:13px; resize:vertical}
+  input[type="text"], input[type="number"], select { width:100%; padding:8px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:var(--glass); color:#e6eef8; }
+
+  .controls{ display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .btn{ padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:transparent; color:#e6eef8; cursor:pointer; }
+  .btn:hover{ filter:brightness(1.05) }
+  .btn-primary{ background:var(--accent); color:#042433; border:none; }
+  .btn-secondary{ background:transparent; color:var(--accent); border:1px solid rgba(56,189,248,0.12) }
+  .btn-danger{ background:var(--danger); color:#fff; border:none; }
+
+  .file-drop {
+    margin-top:8px;
+    border:2px dashed rgba(255,255,255,0.03);
+    padding:12px;
+    border-radius:8px;
+    text-align:center;
+    color:var(--muted);
+    background: linear-gradient(180deg, rgba(255,255,255,0.005), transparent);
+    cursor:pointer;
+  }
+  .file-drop.dragover { border-color: rgba(56,189,248,0.6); background: rgba(56,189,248,0.02); color:var(--accent); }
+
+  .aside { padding:12px; background:#061827; border-radius:8px; }
+  .meta { font-size:13px; color:var(--muted); }
+
+  pre.info { background:#031427; padding:10px; border-radius:8px; color:#cfe7ff; font-size:13px; overflow:auto; max-height:220px; }
+
+  footer { margin-top:12px; color:var(--muted); font-size:13px; }
+
+  .row { display:flex; gap:8px; align-items:center; }
+  .spacer { flex:1 }
+
+  .small { font-size:12px; color:var(--muted); }
+  .pill { padding:6px 8px; border-radius:999px; background:rgba(255,255,255,0.02); color:var(--muted); font-size:12px; display:inline-block; }
+
+  .status { font-weight:600; color:var(--muted); }
+  .status.running { color:var(--accent-2); }
+  .status.error { color:var(--danger); }
+
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Advanced AST Cleaner</h1>
+        <p>Upload primer-style Lua output, reconstruct function parameters, inline varargs, and optionally rename obfuscated variables.</p>
+      </div>
+      <div class="spacer"></div>
+      <div class="pill small">AST frontend (ast.html)</div>
+    </header>
+
+    <div class="card">
+      <div class="grid">
+        <!-- LEFT: Editor / Input / Output -->
+        <div>
+          <label for="fileInput">Upload file (or drag & drop)</label>
+          <div id="fileDrop" class="file-drop">
+            <input id="fileInput" type="file" accept=".lua,.txt" style="display:none" />
+            <div id="fileHint">Drop a .lua file here or click to select</div>
+            <div id="fileName" class="small" style="margin-top:8px"></div>
+          </div>
+
+          <label style="margin-top:12px">Input code (paste/edit)</label>
+          <textarea id="input" placeholder="Paste your Lua code here..."></textarea>
+
+          <div class="controls">
+            <button id="btnClean" class="btn btn-primary">Clean (AST)</button>
+            <button id="btnFallback" class="btn btn-secondary">Clean (Regex fallback)</button>
+            <button id="btnClear" class="btn">Clear</button>
+            <div class="spacer"></div>
+            <div class="meta small" id="lines">Lines: 0</div>
+          </div>
+
+          <label style="margin-top:12px">Output (cleaned)</label>
+          <textarea id="output" readonly placeholder="Cleaned code will appear here..."></textarea>
+
+          <div class="controls" style="margin-top:8px">
+            <button id="btnDownload" class="btn">Download cleaned.lua</button>
+            <button id="btnCopy" class="btn">Copy to clipboard</button>
+            <div class="spacer"></div>
+            <div id="statusMsg" class="status small">Status: idle</div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Options + Rename map + Warnings -->
+        <aside>
+          <div class="aside">
+            <label>Endpoint (advanced)</label>
+            <div class="small meta" style="margin-bottom:8px">Using relative endpoint: <code>/clean_ast</code></div>
+
+            <label>Argument prefix</label>
+            <input id="argPrefix" type="text" value="arg" />
+
+            <label style="margin-top:8px">Max args per function</label>
+            <input id="maxArgs" type="number" min="1" max="20" value="6" />
+
+            <div style="margin-top:8px" class="row">
+              <label style="margin-right:8px"><input type="checkbox" id="renameToggle" checked /> Enable renaming</label>
+            </div>
+
+            <div style="margin-top:10px">
+              <button id="btnCleanAstNow" class="btn btn-primary" style="width:100%">Run AST Clean Now</button>
+            </div>
+
+            <div style="margin-top:12px">
+              <strong class="small">Renamed variables</strong>
+              <pre id="renameMap" class="info">(none)</pre>
+            </div>
+
+            <div style="margin-top:12px">
+              <strong class="small">Warnings</strong>
+              <pre id="warnings" class="info">(none)</pre>
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:8px;">
+              <button id="btnHealth" class="btn">Health</button>
+              <button id="btnOpenAPI" class="btn">Open /clean_ast (new tab)</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <footer>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:12px;">
+          <div class="small">Notes: AST parsing is powerful but may fail on malformed code. The backend will fallback to regex if parsing fails (when you use the hybrid endpoints).</div>
+          <div class="spacer"></div>
+          <div class="small meta">Made for your advanced AST cleaner</div>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // Elements
+  const fileDrop = document.getElementById('fileDrop');
+  const fileInput = document.getElementById('fileInput');
+  const fileNameEl = document.getElementById('fileName');
+  const inputEl = document.getElementById('input');
+  const outputEl = document.getElementById('output');
+  const btnClean = document.getElementById('btnClean');
+  const btnFallback = document.getElementById('btnFallback');
+  const btnCleanAstNow = document.getElementById('btnCleanAstNow');
+  const btnClear = document.getElementById('btnClear');
+  const btnDownload = document.getElementById('btnDownload');
+  const btnCopy = document.getElementById('btnCopy');
+  const renameMapEl = document.getElementById('renameMap');
+  const warningsEl = document.getElementById('warnings');
+  const argPrefixEl = document.getElementById('argPrefix');
+  const maxArgsEl = document.getElementById('maxArgs');
+  const renameToggle = document.getElementById('renameToggle');
+  const statusMsg = document.getElementById('statusMsg');
+  const linesEl = document.getElementById('lines');
+  const btnHealth = document.getElementById('btnHealth');
+  const btnOpenAPI = document.getElementById('btnOpenAPI');
+
+  // Utilities
+  function setStatus(text, cls) {
+    statusMsg.textContent = 'Status: ' + text;
+    statusMsg.className = 'status small' + (cls ? ' ' + cls : '');
+  }
+
+  function updateLines() {
+    const l = (inputEl.value.match(/\n/g) || []).length + (inputEl.value.length ? 1 : 0);
+    linesEl.textContent = 'Lines: ' + l;
+  }
+
+  // File handling
+  fileDrop.addEventListener('click', (e) => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    fileNameEl.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
+    const r = new FileReader();
+    r.onload = ev => {
+      inputEl.value = ev.target.result;
+      updateLines();
+    };
+    r.readAsText(f);
+  });
+
+  // Drag & drop
+  fileDrop.addEventListener('dragover', (e) => {
+    e.preventDefault(); fileDrop.classList.add('dragover');
+  });
+  fileDrop.addEventListener('dragleave', () => fileDrop.classList.remove('dragover'));
+  fileDrop.addEventListener('drop', (e) => {
+    e.preventDefault(); fileDrop.classList.remove('dragover');
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f) return;
+    fileNameEl.textContent = f.name + ' (' + Math.round(f.size/1024) + ' KB)';
+    const r = new FileReader();
+    r.onload = ev => { inputEl.value = ev.target.result; updateLines(); };
+    r.readAsText(f);
+  });
+
+  // Clear
+  btnClear.addEventListener('click', () => {
+    inputEl.value = '';
+    outputEl.value = '';
+    renameMapEl.textContent = '(none)';
+    warningsEl.textContent = '(none)';
+    fileNameEl.textContent = '';
+    updateLines();
+    setStatus('idle');
+  });
+
+  // Download cleaned
+  btnDownload.addEventListener('click', () => {
+    const txt = outputEl.value;
+    if (!txt) return alert('No cleaned output to download.');
+    const blob = new Blob([txt], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'cleaned.lua';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  // Copy to clipboard
+  btnCopy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(outputEl.value);
+      setStatus('copied to clipboard');
+    } catch (err) {
+      alert('Clipboard copy failed: ' + (err && err.message || err));
+    }
+  });
+
+  // Health check
+  btnHealth.addEventListener('click', async () => {
+    try {
+      setStatus('checking health...', 'running');
+      const res = await fetch('/health');
+      const data = await res.json();
+      if (data && data.ok) setStatus('healthy', 'running');
+      else setStatus('no response', 'error');
+    } catch (err) {
+      setStatus('error', 'error');
+      warningsEl.textContent = 'Health check failed: ' + (err && err.message || err);
+    }
+  });
+
+  btnOpenAPI.addEventListener('click', () => {
+    const url = new URL(window.location.origin + '/clean_ast');
+    // open a simple page with curl example
+    window.open(url.toString(), '_blank');
+  });
+
+  // perform a POST to /clean_ast
+  async function callCleanAST(code, opts) {
+    setStatus('running AST clean...', 'running');
+    renameMapEl.textContent = '(working...)';
+    warningsEl.textContent = '(working...)';
+    try {
+      const resp = await fetch('/clean_ast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, options: opts })
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        setStatus('server error', 'error');
+        warningsEl.textContent = 'Server returned HTTP ' + resp.status + '\\n' + txt;
+        return null;
+      }
+      const data = await resp.json();
+      return data;
+    } catch (err) {
+      setStatus('network error', 'error');
+      warningsEl.textContent = 'Network error: ' + (err && err.message || err);
+      return null;
+    }
+  }
+
+  // Clean AST button
+  async function doAstClean() {
+    const code = inputEl.value;
+    if (!code) return alert('Please paste or upload a Lua file first.');
+
+    const opts = {
+      argPrefix: (argPrefixEl.value || 'arg').trim(),
+      maxArgsPerFn: Number(maxArgsEl.value) || 6,
+      enableRenaming: renameToggle.checked === true
+    };
+
+    const data = await callCleanAST(code, opts);
+    if (!data) return;
+
+    if (data.fallback) {
+      // backend indicated fallback
+      outputEl.value = data.cleaned || '';
+      warningsEl.textContent = (data.warnings && data.warnings.length) ? data.warnings.join('\\n') : 'fallback (AST parse failed)';
+      renameMapEl.textContent = '(none)';
+      setStatus('fallback used', 'error');
+      return;
+    }
+
+    outputEl.value = data.cleaned || '';
+    renameMapEl.textContent = (data.renameMap && Object.keys(data.renameMap).length) ? JSON.stringify(data.renameMap, null, 2) : '(none)';
+    warningsEl.textContent = (data.warnings && data.warnings.length) ? data.warnings.join('\\n') : '(none)';
+    setStatus('done', '');
+    updateLines();
+  }
+
+  // Simple regex fallback local cleaning (client-side quick)
+  function doRegexFallbackLocal() {
+    let code = inputEl.value;
+    if (!code) return alert('Please paste or upload a Lua file first.');
+
+    // basic transformations
+    code = code.replace(/\\(\\{\\s*\\.\\.\\.\\s*\\}\\)\\[(\\d+)\\]/g, 'arg$1');
+    code = code.replace(/function\\s*\\(\\s*\\.\\.\\.\\s*\\)/g, 'function()');
+    code = code.replace(/local\\s+([A-Za-z0-9_,\\s]+)\\s*=\\s*\\.\\.\\./g, (m, names) => {
+      const idents = names.replace(/\\s+/g, '').split(',').filter(Boolean);
+      return 'local ' + idents.join(', ') + ' = ' + idents.map((_,i)=>'arg'+(i+1)).join(', ');
+    });
+    outputEl.value = code;
+    setStatus('regex local applied');
+    renameMapEl.textContent = '(none)';
+    warningsEl.textContent = '(client-side regex applied)';
+  }
+
+  // Wire buttons
+  btnClean.addEventListener('click', doAstClean);
+  btnCleanAstNow.addEventListener('click', doAstClean);
+  btnFallback.addEventListener('click', doRegexFallbackLocal);
+
+  // Update lines on input
+  inputEl.addEventListener('input', updateLines);
+
+  // Initialize
+  updateLines();
+  setStatus('idle');
+
+  // keyboard shortcut: ctrl+enter to run AST clean
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      doAstClean();
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
