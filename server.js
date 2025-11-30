@@ -6,6 +6,7 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const axios = require("axios");   // ⭐ REQUIRED for AST reverse-proxy
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -50,9 +51,9 @@ const SCRIPT_LUA_PATH = path.join(__dirname, 'src', 'cli.lua');
 const generateId = () => crypto.randomBytes(16).toString("hex");
 const applyFallback = (raw) => `${FALLBACK_WATERMARK}\n${raw}`;
 
-/* -----------------------------------------------------
-     FULL OBFUSCATOR FUNCTION (Supports presets)
------------------------------------------------------- */
+/* ======================================================
+      FULL OBFUSCATOR FUNCTION (Supports presets)
+====================================================== */
 async function runObfuscator(rawLua, preset = "Medium") {
     const timestamp = Date.now();
     const tempFile = path.join(__dirname, `temp_${timestamp}.lua`);
@@ -77,7 +78,7 @@ async function runObfuscator(rawLua, preset = "Medium") {
                 }
 
                 if (!fs.existsSync(outputFile)) {
-                    console.error("Obfuscator did not generate output.");
+                    console.error("Obfuscator output missing.");
                     finalCode = applyFallback(rawLua);
                     return resolve();
                 }
@@ -186,11 +187,34 @@ app.get("/retrieve/:key", async (req, res) => {
     }
 });
 
+/* =======================================================
+     ⭐ ADVANCED AST CLEANER REVERSE-PROXY (NEW)
+======================================================== */
+app.post("/clean_ast", async (req, res) => {
+    try {
+        const upstream = await axios.post(
+            "http://localhost:5001/clean_ast",
+            req.body,
+            { headers: { "Content-Type": "application/json" } }
+        );
+
+        res.status(200).json(upstream.data);
+
+    } catch (err) {
+        console.error("Proxy /clean_ast failed:", err.message);
+
+        res.status(500).json({
+            error: "ast_backend_failure",
+            message: err.message
+        });
+    }
+});
+
 /* -----------------------------------------------------
                       ROOT
 ------------------------------------------------------ */
 app.get('/', (req, res) => {
-    res.redirect('/index.html');
+    res.redirect('/ast.html'); // ⭐ if you want AST.html as the homepage
 });
 
 /* -----------------------------------------------------
