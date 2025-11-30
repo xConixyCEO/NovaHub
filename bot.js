@@ -1,5 +1,5 @@
 // bot.js
-// NovaHub Discord Bot - Full single-file implementation
+// NovaHub Discord Bot - Cleaned single-file implementation (slash-only)
 require('dotenv').config();
 
 const fs = require('fs');
@@ -77,7 +77,7 @@ async function initDb() {
     );
   `);
 
-  // scripts table may already exist for server, ensure it exists as well
+  // scripts table - mirrors server's storage table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS scripts (
       key VARCHAR(64) PRIMARY KEY,
@@ -180,12 +180,37 @@ async function uploadToStorageChannel(client, filePath, fileName) {
   try {
     const ch = await client.channels.fetch(STORAGE_CHANNEL_ID).catch(() => null);
     if (!ch || !ch.send) return null;
+    // Passing file path directly works with AttachmentBuilder
     const msg = await ch.send({ files: [new AttachmentBuilder(filePath, { name: fileName })] });
     return msg.attachments.first().url;
   } catch (e) {
     console.warn('uploadToStorageChannel error:', e?.message || e);
     return null;
   }
+}
+
+/* ============================
+   collectCodeFromInteraction (single reusable function)
+   ============================ */
+async function collectCodeFromInteraction(interaction) {
+  const attachment = interaction.options.getAttachment('file');
+  if (attachment) {
+    const ext = path.extname(attachment.name).toLowerCase();
+    if (!['.lua', '.txt'].includes(ext)) throw new Error('Only .lua or .txt attachments supported.');
+    const tmp = path.join(TEMP_DIR, `input_${Date.now()}_${attachment.name}`);
+    try {
+      await downloadAttachment(attachment.url, tmp);
+      const content = fs.readFileSync(tmp, 'utf8');
+      cleanupFile(tmp);
+      return { code: content, filename: attachment.name };
+    } catch (e) {
+      cleanupFile(tmp);
+      throw new Error('Failed to download attachment.');
+    }
+  }
+  const code = interaction.options.getString('code');
+  if (code && code.trim().length > 0) return { code, filename: `code_${Date.now()}.lua` };
+  throw new Error('No code provided. Attach a .lua/.txt file or use the code option.');
 }
 
 /* ============================
@@ -265,28 +290,6 @@ client.on('interactionCreate', async (interaction) => {
   await ensureUserRow(uid);
   await refreshTokensIfNeeded(uid);
   const userRow = await getUser(uid);
-
-  // collect code helper
-  async function collectCode() {
-    const attachment = interaction.options.getAttachment('file');
-    if (attachment) {
-      const ext = path.extname(attachment.name).toLowerCase();
-      if (!['.lua', '.txt'].includes(ext)) throw new Error('Only .lua or .txt attachments supported.');
-      const tmp = path.join(TEMP_DIR, `input_${Date.now()}_${attachment.name}`);
-      try {
-        await downloadAttachment(attachment.url, tmp);
-        const content = fs.readFileSync(tmp, 'utf8');
-        cleanupFile(tmp);
-        return { code: content, filename: attachment.name };
-      } catch (e) {
-        cleanupFile(tmp);
-        throw new Error('Failed to download attachment.');
-      }
-    }
-    const code = interaction.options.getString('code');
-    if (code && code.trim().length > 0) return { code, filename: `code_${Date.now()}.lua` };
-    throw new Error('No code provided. Attach a .lua/.txt file or use the code option.');
-  }
 
   try {
     // /info - public (non-ephemeral)
@@ -406,9 +409,9 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       let collected;
-      try { collected = await collectCode(); } catch (e) { return interaction.editReply({ content: `❌ ${e.message}` }); }
+      try { collected = await collectCodeFromInteraction(interaction); } catch (e) { return interaction.editReply({ content: `❌ ${e.message}` }); }
 
-      // Call API: obfuscate-and-store. Server expects "script" field (we pass api_secret if present)
+      // Call API: obfuscate-and-store. Server expects "script" field
       let apiResp;
       try {
         apiResp = await axios.post(API_OBF_STORE, { script: collected.code, api_secret: API_SECRET }, { timeout: API_TIMEOUT });
@@ -468,7 +471,7 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       let collected;
-      try { collected = await collectCode(); } catch (e) { return interaction.editReply({ content: `❌ ${e.message}` }); }
+      try { collected = await collectCodeFromInteraction(interaction); } catch (e) { return interaction.editReply({ content: `❌ ${e.message}` }); }
 
       // call /obfuscate
       let apiResp;
@@ -520,38 +523,6 @@ client.on('interactionCreate', async (interaction) => {
     } catch (e) {}
   }
 });
-
-/* ============================
-   Helper: collectCode (outside main try so it can be reused)
-   (Defined here to avoid hoisting issues)
-   ============================ */
-async function collectCodeFromInteraction(interaction) {
-  const attachment = interaction.options.getAttachment('file');
-  if (attachment) {
-    const ext = path.extname(attachment.name).toLowerCase();
-    if (!['.lua', '.txt'].includes(ext)) throw new Error('Only .lua or .txt attachments supported.');
-    const tmp = path.join(TEMP_DIR, `input_${Date.now()}_${attachment.name}`);
-    try {
-      await downloadAttachment(attachment.url, tmp);
-      const content = fs.readFileSync(tmp, 'utf8');
-      cleanupFile(tmp);
-      return { code: content, filename: attachment.name };
-    } catch (e) {
-      cleanupFile(tmp);
-      throw new Error('Failed to download attachment.');
-    }
-  }
-  const code = interaction.options.getString('code');
-  if (code && code.trim().length > 0) return { code, filename: `code_${Date.now()}.lua` };
-  throw new Error('No code provided. Attach a .lua/.txt file or use the code option.');
-}
-
-// We need local wrapper to use the function inside handlers (because of scope)
-async function collectCode() {
-  // Attempt to get interaction from lastEvent? Instead, mutual approach:
-  // We'll throw if called directly (handlers defined inline already use their own collectCode).
-  throw new Error('Internal: collectCode should not be called directly here.');
-}
 
 /* ============================
    Login
