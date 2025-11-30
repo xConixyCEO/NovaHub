@@ -20,7 +20,7 @@ app.use(bodyParser.urlencoded({ extended: true, limit: "20mb" }));
 
 // Serve index.html if it's present in the repo root
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "ast.html"));
+  res.sendFile(path.join(__dirname, "public", "ast.html"));
 });
 
 // ----------------------------- Helpers -----------------------------
