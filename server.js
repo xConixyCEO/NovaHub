@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const crypto = require('crypto');
 const { Pool } = require('pg');
@@ -7,266 +6,257 @@ const cors = require('cors');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const axios = require("axios");
 
 const app = express();
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 3000; 
 
-/* ---------------- Payload Config ---------------- */
+// --- CRITICAL: INCREASED PAYLOAD LIMIT TO 100MB ---
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
-app.use(cors());
-app.use(express.static('public'));
+// --------------------------------------------------
 
-/* ---------------- Database Setup ---------------- */
+// --- Database Connection Pool ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 });
 
+// Test connection and initialize table
 pool.connect((err, client, done) => {
     if (err) {
         console.error('Database connection failed:', err.stack);
         return;
     }
-    console.log('Connected to PostgreSQL.');
-
-    client.query(`
+    console.log('Successfully connected to PostgreSQL.');
+    
+    // Creates the 'scripts' table if it doesn't exist
+    const createTableQuery = `
         CREATE TABLE IF NOT EXISTS scripts (
             key VARCHAR(32) PRIMARY KEY,
             script TEXT NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
-    `, (err) => {
+    `;
+    client.query(createTableQuery, (err, res) => {
         done();
-        if (err) console.error('Error creating table:', err.stack);
-        else console.log('Table "scripts" ready.');
+        if (err) {
+            console.error('Error creating table:', err.stack);
+        } else {
+            console.log('Database table "scripts" initialized.');
+        }
     });
 });
 
-/* ---------------- Constants ---------------- */
-const WATERMARK = "-- </> This file has been secured using Nova Hub Protection\n\n";
+// Define the watermark constant
+const WATERMARK = "--[[ v0.1.0 NovaHub Lua Obfuscator ]] "; 
 const FALLBACK_WATERMARK = "--[[ OBFUSCATION FAILED: Returning raw script. Check your Lua syntax. ]] ";
-const SCRIPT_LUA_PATH = path.join(__dirname, 'src', 'cli.lua'); // ensure your obfuscator exists
 
-/* ---------------- Helper Functions ---------------- */
-const generateId = () => crypto.randomBytes(16).toString("hex");
-const applyFallback = (raw) => `${FALLBACK_WATERMARK}\n${raw}`;
+// Middleware for static files and CORS
+app.use(express.static('public')); 
+app.use(cors());
 
-/* ======================================================
-      INTERNAL OBFUSCATOR FUNCTION
-====================================================== */
-async function runObfuscator(rawLua, preset = "Medium") {
+// --- Helper Functions ---
+const generateUniqueId = () => {
+    return crypto.randomBytes(16).toString('hex');
+};
+
+// --- Fallback Obfuscation Function ---
+// Wraps the raw code in a message block so the service doesn't outright fail.
+const applyFallback = (rawCode) => {
+    return `${FALLBACK_WATERMARK}\n${rawCode}`;
+};
+
+
+// =======================================================
+// === 1. OBFUSCATE ROUTE (Returns Raw Code) ===========
+// =======================================================
+app.post('/obfuscate', async (req, res) => {
+    const rawLuaCode = req.body.code;
+    const preset = 'Medium';
     const timestamp = Date.now();
+    
     const tempFile = path.join(__dirname, `temp_${timestamp}.lua`);
     const outputFile = path.join(__dirname, `obf_${timestamp}.lua`);
+    
+    let obfuscatedCode = '';
+    let obfuscationSucceeded = false;
 
-    let success = false;
-    let finalCode = "";
-
+    // Step 1: Execute Obfuscator
     try {
-        fs.writeFileSync(tempFile, rawLua, "utf8");
+        fs.writeFileSync(tempFile, rawLuaCode, 'utf8');
 
-        const cmd = `lua ${SCRIPT_LUA_PATH} --preset ${preset} --out ${outputFile} ${tempFile}`;
-
-        await new Promise(resolve => {
-            exec(cmd, { timeout: 15000 }, (error, stdout, stderr) => {
-                try { fs.unlinkSync(tempFile); } catch {}
-
+        const command = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
+        
+        await new Promise((resolve) => { // No need to reject here, we handle failure internally
+            exec(command, (error, stdout, stderr) => {
+                // Clean up the temporary input file immediately
+                fs.unlinkSync(tempFile); 
+                
                 if (error || stderr) {
-                    console.error("Lua Obfuscator Error:", error || stderr);
-                    finalCode = applyFallback(rawLua);
-                    return resolve();
+                    console.error(`Prometheus Execution Failed: ${error ? error.message : stderr}`);
+                    if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+                    
+                    // --- FALLBACK LOGIC ---
+                    obfuscatedCode = applyFallback(rawLuaCode);
+                    obfuscationSucceeded = false;
+                    resolve();
+                    return;
                 }
-
-                if (!fs.existsSync(outputFile)) {
-                    console.error("Obfuscator output missing.");
-                    finalCode = applyFallback(rawLua);
-                    return resolve();
-                }
-
-                finalCode = fs.readFileSync(outputFile, "utf8");
-                finalCode = WATERMARK + finalCode;
-
-                try { fs.unlinkSync(outputFile); } catch {}
-
-                success = true;
+                
+                // Success path
+                obfuscatedCode = fs.readFileSync(outputFile, 'utf8');
+                obfuscatedCode = WATERMARK + obfuscatedCode;
+                fs.unlinkSync(outputFile);
+                obfuscationSucceeded = true;
                 resolve();
             });
         });
-
-    } catch (err) {
-        console.error("Internal obfuscator error:", err);
-        finalCode = applyFallback(rawLua);
+        
+    } catch (error) {
+        // Handle errors during execution or file read (e.g. filesystem issues)
+        console.error('Filesystem or Internal Execution Error:', error);
+        
+        // --- SECONDARY FALLBACK (for catastrophic errors) ---
+        obfuscatedCode = applyFallback(rawLuaCode);
+        obfuscationSucceeded = false;
     }
 
-    return { success, code: finalCode };
-}
-
-/* =======================================================
-       MAIN OBFUSCATION ENDPOINT
-======================================================== */
-app.post('/obfuscate', async (req, res) => {
-    const rawLuaCode = req.body.code || req.body.script;
-    const preset = req.body.preset || "Medium";
-
-    if (!rawLuaCode || typeof rawLuaCode !== "string") {
-        return res.status(400).json({ error: 'A "code" or "script" field is required.' });
+    // Step 2: Return Result
+    if (!obfuscationSucceeded) {
+        // Log that a fallback was used
+        console.warn("Obfuscation failed, returning raw code with a warning.");
     }
-
-    const result = await runObfuscator(rawLuaCode, preset);
-
-    if (result.success) {
-        res.status(200).json({
-            success: true,
-            obfuscatedCode: result.code
-        });
-    } else {
-        res.status(422).json({
-            success: false,
-            error: "Obfuscation Failed",
-            obfuscatedCode: result.code
-        });
-    }
+    
+    res.status(200).json({ 
+        obfuscatedCode: obfuscatedCode
+    });
 });
 
-/* =======================================================
-   OBFUSCATE + STORE INTO DATABASE  (/obfuscate-and-store)
-======================================================== */
-app.post("/obfuscate-and-store", async (req, res) => {
-    const raw = req.body.script || req.body.code;
 
-    if (!raw)
-        return res.status(400).json({ error: "Missing 'script' or 'code'." });
+// =======================================================
+// === 2. OBFUSCATE-AND-STORE ROUTE (Returns Loader Key) ===
+// =======================================================
+app.post('/obfuscate-and-store', async (req, res) => {
+    const rawLuaCode = req.body.script;
+    const preset = 'Medium'; 
+    const timestamp = Date.now();
+    
+    const tempFile = path.join(__dirname, `temp_${timestamp}.lua`);
+    const outputFile = path.join(__dirname, `obf_${timestamp}.lua`);
+    
+    let obfuscatedCode = '';
+    let obfuscationSucceeded = false;
 
-    const { success, code } = await runObfuscator(raw, "Medium");
+    // Step 1: Execute Obfuscator
+    try {
+        fs.writeFileSync(tempFile, rawLuaCode, 'utf8');
 
-    const key = generateId();
+        const command = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
+        
+        await new Promise((resolve) => { // No need to reject here, we handle failure internally
+            exec(command, (error, stdout, stderr) => {
+                fs.unlinkSync(tempFile); 
+                
+                if (error || stderr) {
+                    console.error(`Prometheus Execution Failed: ${error ? error.message : stderr}`);
+                    if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+                    
+                    // --- FALLBACK LOGIC ---
+                    obfuscatedCode = applyFallback(rawLuaCode);
+                    obfuscationSucceeded = false;
+                    resolve();
+                    return;
+                }
+                
+                // Success path
+                obfuscatedCode = fs.readFileSync(outputFile, 'utf8');
+                obfuscatedCode = WATERMARK + obfuscatedCode;
+                fs.unlinkSync(outputFile);
+                obfuscationSucceeded = true;
+                resolve();
+            });
+        });
+        
+    } catch (error) {
+        console.error('Filesystem or Internal Execution Error:', error);
+        
+        // --- SECONDARY FALLBACK (for catastrophic errors) ---
+        obfuscatedCode = applyFallback(rawLuaCode);
+        obfuscationSucceeded = false;
+    }
 
+    // Step 2: Store Code to PostgreSQL
+    const scriptKey = generateUniqueId();
+    
     try {
         await pool.query(
-            "INSERT INTO scripts(key, script) VALUES($1, $2)",
-            [key, code]
+            'INSERT INTO scripts(key, script) VALUES($1, $2)',
+            [scriptKey, obfuscatedCode] // Store the code (either obfuscated or fallback)
         );
 
-        res.status(201).json({
-            success,
-            key,
-            obfuscatedCode: code,
-            message: success
-                ? "Obfuscation + storage complete."
-                : "Stored (fallback obfuscation used)."
+        // Success: Return the key to the frontend
+        if (!obfuscationSucceeded) {
+            console.warn("Obfuscation failed, but the raw code with a warning was stored and a key returned.");
+        }
+        
+        res.status(201).json({ 
+            message: obfuscationSucceeded ? 'Obfuscation and storage complete.' : 'Storage complete, but obfuscation failed. Check script for warning.',
+            key: scriptKey
         });
 
-    } catch (err) {
-        console.error("Database Error:", err);
-        res.status(500).json({ error: "Database storage failure." });
+    } catch (error) {
+        console.error('Database error during storage:', error);
+        res.status(500).json({ error: 'Internal server error during script storage.' });
     }
 });
 
-/* =======================================================
-      ROBLOX LOADER — SERVE STORED SCRIPT
-======================================================== */
-app.get("/retrieve/:key", async (req, res) => {
-    const key = req.params.key;
 
-    // Require Roblox user-agent for protection
-    if (!req.headers["user-agent"]?.includes("Roblox")) {
-        res.setHeader("Content-Type", "text/plain");
-        return res.status(403).send("-- Access Denied.");
+// ====================================================
+// === 3. STORAGE API ENDPOINTS (PostgreSQL Retrieval)===
+// ====================================================
+
+// GET /retrieve/:key (Retrieves the Lua script - Roblox only)
+app.get('/retrieve/:key', async (req, res) => {
+    const scriptKey = req.params.key;
+    const userAgent = req.headers['user-agent'];
+
+    // 1. Validate User-Agent (ROBLOX SECURITY CHECK)
+    if (!userAgent || !userAgent.includes('Roblox')) {
+        res.setHeader('Content-Type', 'text/plain');
+        return res.status(403).send('-- Access Denied.');
     }
 
     try {
         const result = await pool.query(
-            "SELECT script FROM scripts WHERE key = $1",
-            [key]
+            'SELECT script FROM scripts WHERE key = $1', 
+            [scriptKey]
         );
 
-        if (result.rows.length === 0)
-            return res.status(404).send("-- Script not found.");
+        if (result.rows.length === 0) {
+            res.setHeader('Content-Type', 'text/plain');
+            return res.status(404).send('-- Error: Script not found or has expired.');
+        }
 
-        res.setHeader("Content-Type", "text/plain");
-        res.send(result.rows[0].script);
+        const script = result.rows[0].script;
 
-    } catch (err) {
-        console.error("DB Fetch Error:", err);
-        res.status(500).send("-- Internal Server Error.");
+        // 2. Deliver the stored script
+        res.setHeader('Content-Type', 'text/plain');
+        res.status(200).send(script);
+        
+    } catch (error) {
+        console.error('Database error during retrieval:', error);
+        res.setHeader('Content-Type', 'text/plain');
+        res.status(500).send('-- Error: Internal Server Failure.');
     }
 });
 
-/* =======================================================
-      AST CLEANER REVERSE-PROXY  (/clean_ast)
-======================================================== */
-app.post("/clean_ast", async (req, res) => {
-    try {
-        const upstream = await axios.post(
-            "http://localhost:5001/clean_ast",
-            req.body,
-            { headers: { "Content-Type": "application/json" } }
-        );
 
-        res.status(200).json(upstream.data);
-
-    } catch (err) {
-        console.error("Proxy /clean_ast failed:", err.message);
-
-        res.status(500).json({
-            error: "ast_backend_failure",
-            message: err.message
-        });
-    }
-});
-
-/* =======================================================
-      ⭐ NEW ENDPOINT — USED BY DISCORD /apiservice
-======================================================== */
-app.post("/apiservice", async (req, res) => {
-    try {
-        const script = req.body.script;
-        const preset = req.body.preset || "Medium";
-
-        if (!script)
-            return res.status(400).json({ error: "Missing 'script' field." });
-
-        // 1. Internal obfuscation
-        const { success, code } = await runObfuscator(script, preset);
-
-        // 2. Save to DB
-        const key = generateId();
-        await pool.query(
-            "INSERT INTO scripts(key, script) VALUES($1, $2)",
-            [key, code]
-        );
-
-        // 3. Respond to bot
-        return res.status(200).json({
-            success,
-            key,
-            loader: `https://novahub-zd14.onrender.com/retrieve/${key}`,
-            obfuscatedCode: code,
-            message: success
-                ? "Obfuscation completed using MyAPI."
-                : "Fallback obfuscation used (syntax issue)."
-        });
-
-    } catch (err) {
-        console.error("APIService Error:", err);
-        return res.status(500).json({
-            error: "apiservice_failure",
-            message: err.message
-        });
-    }
-});
-
-/* -----------------------------------------------------
-                      ROOT
------------------------------------------------------- */
+// Basic Health Check
 app.get('/', (req, res) => {
-    res.redirect('/ast.html');
+    res.send('NovaHub Unified Backend is running and connected to PostgreSQL.');
 });
 
-/* -----------------------------------------------------
-                    START SERVER
------------------------------------------------------- */
+
+// Start the server
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+    console.log(`Server listening on port ${port}`);
 });
