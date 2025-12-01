@@ -53,7 +53,7 @@ const generateId = () => crypto.randomBytes(16).toString("hex");
 const applyFallback = (raw) => `${FALLBACK_WATERMARK}\n${raw}`;
 
 /* ======================================================
-      FULL OBFUSCATOR FUNCTION (Supports presets)
+      INTERNAL OBFUSCATOR FUNCTION
 ====================================================== */
 async function runObfuscator(rawLua, preset = "Medium") {
     const timestamp = Date.now();
@@ -66,14 +66,14 @@ async function runObfuscator(rawLua, preset = "Medium") {
     try {
         fs.writeFileSync(tempFile, rawLua, "utf8");
 
-        const command = `lua ${SCRIPT_LUA_PATH} --preset ${preset} --out ${outputFile} ${tempFile}`;
+        const cmd = `lua ${SCRIPT_LUA_PATH} --preset ${preset} --out ${outputFile} ${tempFile}`;
 
         await new Promise(resolve => {
-            exec(command, { timeout: 15000 }, (error, stdout, stderr) => {
+            exec(cmd, { timeout: 15000 }, (error, stdout, stderr) => {
                 try { fs.unlinkSync(tempFile); } catch {}
 
                 if (error || stderr) {
-                    console.error("Lua execution error:", error || stderr);
+                    console.error("Lua Obfuscator Error:", error || stderr);
                     finalCode = applyFallback(rawLua);
                     return resolve();
                 }
@@ -103,41 +103,40 @@ async function runObfuscator(rawLua, preset = "Medium") {
 }
 
 /* =======================================================
-       MAIN OBFUSCATION ENDPOINT — /obfuscate
+       MAIN OBFUSCATION ENDPOINT
 ======================================================== */
 app.post('/obfuscate', async (req, res) => {
     const rawLuaCode = req.body.code || req.body.script;
     const preset = req.body.preset || "Medium";
 
     if (!rawLuaCode || typeof rawLuaCode !== "string") {
-        return res.status(400).json({ error: 'A "code" (or "script") field containing Lua script is required.' });
+        return res.status(400).json({ error: 'A "code" or "script" field is required.' });
     }
 
     const result = await runObfuscator(rawLuaCode, preset);
 
     if (result.success) {
         res.status(200).json({
-            obfuscatedCode: result.code,
-            success: true
+            success: true,
+            obfuscatedCode: result.code
         });
     } else {
         res.status(422).json({
+            success: false,
             error: "Obfuscation Failed",
-            obfuscatedCode: result.code,
-            success: false
+            obfuscatedCode: result.code
         });
     }
 });
 
 /* =======================================================
-   OBFUSCATE + STORE INTO DATABASE
-   expects { script: "<lua>" }
+   OBFUSCATE + STORE INTO DATABASE  (/obfuscate-and-store)
 ======================================================== */
 app.post("/obfuscate-and-store", async (req, res) => {
     const raw = req.body.script || req.body.code;
 
     if (!raw)
-        return res.status(400).json({ error: "Missing 'script' (or 'code') in request body." });
+        return res.status(400).json({ error: "Missing 'script' or 'code'." });
 
     const { success, code } = await runObfuscator(raw, "Medium");
 
@@ -150,23 +149,27 @@ app.post("/obfuscate-and-store", async (req, res) => {
         );
 
         res.status(201).json({
-            message: success ? "Obfuscation + storage complete." : "Stored, but obfuscation failed.",
+            success,
             key,
-            obfuscatedCode: code
+            obfuscatedCode: code,
+            message: success
+                ? "Obfuscation + storage complete."
+                : "Stored (fallback obfuscation used)."
         });
 
     } catch (err) {
-        console.error("DB error:", err);
+        console.error("Database Error:", err);
         res.status(500).json({ error: "Database storage failure." });
     }
 });
 
 /* =======================================================
-         ROBLOX LOADER — GET STORED OBFUSCATED SCRIPT
+      ROBLOX LOADER — SERVE STORED SCRIPT
 ======================================================== */
 app.get("/retrieve/:key", async (req, res) => {
     const key = req.params.key;
 
+    // Require Roblox user-agent for protection
     if (!req.headers["user-agent"]?.includes("Roblox")) {
         res.setHeader("Content-Type", "text/plain");
         return res.status(403).send("-- Access Denied.");
@@ -174,7 +177,8 @@ app.get("/retrieve/:key", async (req, res) => {
 
     try {
         const result = await pool.query(
-            "SELECT script FROM scripts WHERE key = $1", [key]
+            "SELECT script FROM scripts WHERE key = $1",
+            [key]
         );
 
         if (result.rows.length === 0)
@@ -184,13 +188,13 @@ app.get("/retrieve/:key", async (req, res) => {
         res.send(result.rows[0].script);
 
     } catch (err) {
-        console.error("DB fetch error:", err);
+        console.error("DB Fetch Error:", err);
         res.status(500).send("-- Internal Server Error.");
     }
 });
 
 /* =======================================================
-     ⭐ ADVANCED AST CLEANER REVERSE-PROXY (FINAL)
+      AST CLEANER REVERSE-PROXY  (/clean_ast)
 ======================================================== */
 app.post("/clean_ast", async (req, res) => {
     try {
@@ -207,6 +211,47 @@ app.post("/clean_ast", async (req, res) => {
 
         res.status(500).json({
             error: "ast_backend_failure",
+            message: err.message
+        });
+    }
+});
+
+/* =======================================================
+      ⭐ NEW ENDPOINT — USED BY DISCORD /apiservice
+======================================================== */
+app.post("/apiservice", async (req, res) => {
+    try {
+        const script = req.body.script;
+        const preset = req.body.preset || "Medium";
+
+        if (!script)
+            return res.status(400).json({ error: "Missing 'script' field." });
+
+        // 1. Internal obfuscation
+        const { success, code } = await runObfuscator(script, preset);
+
+        // 2. Save to DB
+        const key = generateId();
+        await pool.query(
+            "INSERT INTO scripts(key, script) VALUES($1, $2)",
+            [key, code]
+        );
+
+        // 3. Respond to bot
+        return res.status(200).json({
+            success,
+            key,
+            loader: `https://novahub-zd14.onrender.com/retrieve/${key}`,
+            obfuscatedCode: code,
+            message: success
+                ? "Obfuscation completed using MyAPI."
+                : "Fallback obfuscation used (syntax issue)."
+        });
+
+    } catch (err) {
+        console.error("APIService Error:", err);
+        return res.status(500).json({
+            error: "apiservice_failure",
             message: err.message
         });
     }
