@@ -1,4 +1,12 @@
 // bot.js
+// NovaHub single-file bot
+// - Uses data/user.json for persistence (creates if missing)
+// - /info -> /verify (or /vf) required (DMs user on successful verify)
+// - /obf, /store, /api accept pasted code or .lua/.txt attachment
+// - /obf posts public file named <original>_obf.lua (option B)
+// - /api posts public embed with loader (user copies it)
+// - Token system, gifting, whitelist, owner bypass (env-driven)
+
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
@@ -12,14 +20,13 @@ const {
   EmbedBuilder
 } = require("discord.js");
 
-// =================== CONFIG (from .env) ===================
-// Put these in your Render .env or local .env
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN; // required
-const CLIENT_ID = process.env.CLIENT_ID; // required
-const OWNER_ID = process.env.OWNER_ID || ""; // bot owner id
+// ========== CONFIG (env) ==========
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const OWNER_ID = process.env.OWNER_ID || "";
 const API_BASE = process.env.API_BASE || "https://novahub-zd14.onrender.com";
 
-// Data file chosen by you
+// Data file (you asked for data/user.json)
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "data", "user.json");
 
 // Tokens & limits
@@ -30,7 +37,7 @@ const GIFT_LIMIT = parseInt(process.env.GIFT_LIMIT || "30", 10);
 const GIFT_TIMES = parseInt(process.env.GIFT_TIMES || "3", 10);
 const GIFT_RESET_HOURS = parseInt(process.env.GIFT_RESET_HOURS || "6", 10);
 
-// Command lists (override in .env if you want)
+// Command lists
 const COMMANDS_WITH_COST = (process.env.COMMANDS_WITH_COST || "/obf,/store,/api").split(",").filter(Boolean);
 const FREE_COMMANDS = (process.env.FREE_COMMANDS || "/info,/verify,/vf,/view,/help,/ping,/retrieve").split(",").filter(Boolean);
 const PREMIUM_COMMANDS = (process.env.PREMIUM_COMMANDS || "/ApiService").split(",").filter(Boolean);
@@ -43,7 +50,7 @@ if (!DISCORD_TOKEN || !CLIENT_ID) {
   process.exit(1);
 }
 
-// =================== STORAGE (JSON file) ===================
+// ========== STORAGE (JSON file) ==========
 function ensureDataFile() {
   const dir = path.dirname(DATA_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -57,7 +64,7 @@ function loadUsers() {
     if (!raw) return {};
     return JSON.parse(raw);
   } catch (e) {
-    console.error("Failed to load user data, resetting:", e);
+    console.error("Failed to load user data — resetting:", e);
     return {};
   }
 }
@@ -65,7 +72,6 @@ function saveUsers(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
 }
 
-// Ensure user record exists
 function ensureUser(userId) {
   const db = loadUsers();
   if (!db[userId]) {
@@ -73,7 +79,6 @@ function ensureUser(userId) {
       verified: false,
       tokens: INITIAL_TOKENS,
       whitelisted: false,
-      // gift timestamps array to handle sliding window
       giftsGiven: [],
       seenInfo: false,
       createdAt: Date.now()
@@ -83,7 +88,6 @@ function ensureUser(userId) {
   return db[userId];
 }
 
-// Check owner/whitelist/infinite tokens
 function isOwner(userId) { return OWNER_ID && String(userId) === String(OWNER_ID); }
 function isWhitelisted(userId) {
   const db = loadUsers();
@@ -91,7 +95,6 @@ function isWhitelisted(userId) {
 }
 function hasInfinite(userId) { return isOwner(userId) || isWhitelisted(userId); }
 
-// Gift helpers
 function giftsInWindow(timestamps) {
   const now = Date.now();
   const cutoff = now - GIFT_RESET_HOURS * 60 * 60 * 1000;
@@ -102,13 +105,12 @@ function recordGiftTimestamp(userId) {
   ensureUser(userId);
   db[userId].giftsGiven = db[userId].giftsGiven || [];
   db[userId].giftsGiven.push(Date.now());
-  // trim old timestamps (optional)
+  // trim old
   const cutoff = Date.now() - GIFT_RESET_HOURS * 60 * 60 * 1000;
   db[userId].giftsGiven = db[userId].giftsGiven.filter(t => t >= cutoff);
   saveUsers(db);
 }
 
-// Token charge/add
 function chargeTokens(userId, amount) {
   const db = loadUsers();
   ensureUser(userId);
@@ -131,10 +133,10 @@ function addTokens(userId, amount) {
   saveUsers(db);
 }
 
-// =================== Discord setup & commands ===================
+// ========== Discord setup ==========
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Slash commands — attachments allowed for obf/store/api
+// Slash commands (attachments allowed for obf/store/api)
 const commands = [
   new SlashCommandBuilder()
     .setName("obf")
@@ -159,25 +161,11 @@ const commands = [
     .setDescription("Retrieve stored script by key")
     .addStringOption(o => o.setName("key").setDescription("script key").setRequired(true)),
 
-  new SlashCommandBuilder()
-    .setName("ping")
-    .setDescription("Check API response speed"),
-
-  new SlashCommandBuilder()
-    .setName("info")
-    .setDescription("Show commands, explain rules & beta details"),
-
-  new SlashCommandBuilder()
-    .setName("verify")
-    .setDescription("Accept rules and enable commands"),
-
-  new SlashCommandBuilder()
-    .setName("vf")
-    .setDescription("Alias for /verify"),
-
-  new SlashCommandBuilder()
-    .setName("view")
-    .setDescription("View your remaining tokens"),
+  new SlashCommandBuilder().setName("ping").setDescription("Check API response speed"),
+  new SlashCommandBuilder().setName("info").setDescription("Show commands, explain rules & beta details"),
+  new SlashCommandBuilder().setName("verify").setDescription("Accept rules and enable commands"),
+  new SlashCommandBuilder().setName("vf").setDescription("Alias for /verify"),
+  new SlashCommandBuilder().setName("view").setDescription("View your remaining tokens"),
 
   new SlashCommandBuilder()
     .setName("gift")
@@ -193,14 +181,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName("bl")
     .setDescription("Remove user from whitelist (owner only)")
-    .addUserOption(o => o.setName("user").setDescription("User to remove from whitelist").setRequired(true)),
+    .addUserOption(o => o.setName("user").setDescription("User to remove").setRequired(true)),
 
-  new SlashCommandBuilder()
-    .setName("help")
-    .setDescription("Show NovaHub command list")
+  new SlashCommandBuilder().setName("help").setDescription("Show NovaHub command list")
 ];
 
-// register commands
 const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
 (async () => {
   try {
@@ -211,7 +196,6 @@ const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
   }
 })();
 
-// Info embed builder
 function infoEmbed() {
   return new EmbedBuilder()
     .setTitle("📘 NovaHub — Info & Rules (BETA)")
@@ -240,7 +224,6 @@ Notes:
     );
 }
 
-// helper to fetch attachment content (only .lua/.txt)
 async function fetchAttachmentText(attachment) {
   if (!attachment || !attachment.url) throw new Error("No attachment provided.");
   const name = attachment.name || "";
@@ -248,39 +231,34 @@ async function fetchAttachmentText(attachment) {
     throw new Error("Invalid file type — only .lua and .txt allowed.");
   }
   const res = await axios.get(attachment.url, { responseType: "text" });
-  return res.data;
+  return { text: res.data, name: name };
 }
 
-// interaction handler
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const name = interaction.commandName;
   const uid = interaction.user.id;
 
-  // ensure user exists in DB
   ensureUser(uid);
   const user = ensureUser(uid);
 
-  // require verify logic
   const isFreeCmd = FREE_COMMANDS.includes(`/${name}`);
   if (REQUIRE_VERIFY && !user.verified && !isFreeCmd) {
     await interaction.reply({ content: "🔒 You must run `/info` and then `/verify` (or `/vf`) before using that command.", ephemeral: true });
     return;
   }
 
-  // ---------- /info ----------
+  // /info
   if (name === "info") {
-    // mark seenInfo so user knows they opened it
     const db = loadUsers();
     db[uid] = db[uid] || {};
     db[uid].seenInfo = true;
     saveUsers(db);
-
     await interaction.reply({ embeds: [infoEmbed()], ephemeral: true });
     return;
   }
 
-  // ---------- /verify & /vf ----------
+  // /verify or /vf  <-- UPDATED: mark verified, save, send ephemeral reply and DM user on success
   if (name === "verify" || name === "vf") {
     const db = loadUsers();
     db[uid] = db[uid] || {};
@@ -290,11 +268,21 @@ client.on("interactionCreate", async (interaction) => {
     }
     db[uid].verified = true;
     saveUsers(db);
+
+    // ephemeral reply in channel
     await interaction.reply({ content: "✅ Verified — you can now use commands.", ephemeral: true });
+
+    // DM the user confirming verification (silently ignore if DMs closed)
+    try {
+      await interaction.user.send("✅ Successfully verified — you may now use NovaHub commands.");
+    } catch (err) {
+      // user may have DMs closed; don't error
+      console.log(`Could not DM ${interaction.user.tag} (${uid}) — they may have DMs disabled.`);
+    }
     return;
   }
 
-  // ---------- /view ----------
+  // /view
   if (name === "view") {
     const db = loadUsers();
     const u = db[uid] || ensureUser(uid);
@@ -303,7 +291,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- /gift ----------
+  // /gift
   if (name === "gift") {
     const target = interaction.options.getUser("user");
     const amount = interaction.options.getInteger("amount");
@@ -319,7 +307,6 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-    // check gift times for non-owner
     if (!isOwner(uid)) {
       const giver = ensureUser(uid);
       const count = giftsInWindow(giver.giftsGiven || []);
@@ -329,7 +316,6 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
-    // apply gift
     addTokens(target.id, amount);
     if (!isOwner(uid)) recordGiftTimestamp(uid);
 
@@ -338,7 +324,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- /wl (owner-only) ----------
+  // /wl (owner-only)
   if (name === "wl") {
     if (!isOwner(uid)) { await interaction.reply({ content: "❌ Only the owner can whitelist users.", ephemeral: true }); return; }
     const target = interaction.options.getUser("user");
@@ -351,7 +337,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- /bl (owner-only) ----------
+  // /bl (owner-only)
   if (name === "bl") {
     if (!isOwner(uid)) { await interaction.reply({ content: "❌ Only the owner can remove whitelist.", ephemeral: true }); return; }
     const target = interaction.options.getUser("user");
@@ -364,7 +350,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- Charge tokens if command costs ----------
+  // charge tokens for costed commands
   const commandPath = `/${name}`;
   const costs = COMMANDS_WITH_COST.includes(commandPath);
   if (costs) {
@@ -375,65 +361,64 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 
-  // helper to get code from either string or attachment
+  // helper: read code from string or attachment
   async function getCodeFromInteraction() {
     const codeOption = interaction.options.getString("code");
     const att = interaction.options.getAttachment("file");
     if (att) {
-      try {
-        return await fetchAttachmentText(att);
-      } catch (e) {
-        throw new Error(e.message || "Failed to fetch attachment.");
-      }
+      const res = await fetchAttachmentText(att);
+      return { code: res.text, filename: res.name };
     }
-    if (codeOption) return codeOption;
+    if (codeOption) return { code: codeOption, filename: null };
     throw new Error("No code provided. Please paste code or upload a .lua/.txt file.");
   }
 
-  // ---------- /obf ----------
+  // /obf
   if (name === "obf") {
-    // private acknowledgement to user
     await interaction.reply({ content: "🔄 Processing your input privately...", ephemeral: true });
 
-    let code;
+    let payload;
     try {
-      code = await getCodeFromInteraction();
+      payload = await getCodeFromInteraction();
     } catch (e) {
       await interaction.followUp({ content: `❌ ${e.message}`, ephemeral: true });
       return;
     }
 
-    // send to API
+    const code = payload.code;
+    const originalName = payload.filename || "output.lua";
+    const base = path.basename(originalName, path.extname(originalName));
+    const outName = `${base}_obf.lua`;
+
     try {
       const res = await axios.post(`${API_BASE}/obfuscate`, { code });
       const obf = res.data.obfuscatedCode || res.data.obfuscated || String(res.data || "");
-      // public output
       await interaction.followUp({
         content: `✅ Obfuscation complete! (requested by <@${uid}>)`,
-        files: [{ attachment: Buffer.from(obf), name: "obfuscated.lua" }],
+        files: [{ attachment: Buffer.from(obf), name: outName }],
         ephemeral: false
       });
     } catch (err) {
-      console.error("Obfuscation error:", err?.response?.data || err?.message || err);
+      console.error("Obfuscate error:", err?.response?.data || err?.message || err);
       await interaction.followUp({ content: "❌ API error while obfuscating.", ephemeral: true });
     }
     return;
   }
 
-  // ---------- /store ----------
+  // /store
   if (name === "store") {
     await interaction.reply({ content: "🔄 Processing your input privately...", ephemeral: true });
 
-    let code;
+    let payload;
     try {
-      code = await getCodeFromInteraction();
+      payload = await getCodeFromInteraction();
     } catch (e) {
       await interaction.followUp({ content: `❌ ${e.message}`, ephemeral: true });
       return;
     }
 
     try {
-      const res = await axios.post(`${API_BASE}/obfuscate-and-store`, { script: code });
+      const res = await axios.post(`${API_BASE}/obfuscate-and-store`, { script: payload.code });
       const key = res.data.key;
       await interaction.followUp({ content: `✅ Stored Successfully by <@${uid}> — Key: \`${key}\``, ephemeral: false });
     } catch (err) {
@@ -443,27 +428,29 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- /api ----------
+  // /api
   if (name === "api") {
     await interaction.reply({ content: "🔄 Processing your input privately...", ephemeral: true });
 
-    let code;
+    let payload;
     try {
-      code = await getCodeFromInteraction();
+      payload = await getCodeFromInteraction();
     } catch (e) {
       await interaction.followUp({ content: `❌ ${e.message}`, ephemeral: true });
       return;
     }
 
     try {
-      const res = await axios.post(`${API_BASE}/obfuscate-and-store`, { script: code });
+      const res = await axios.post(`${API_BASE}/obfuscate-and-store`, { script: payload.code });
       const key = res.data.key;
       const loader = `loadstring(game:HttpGet("${API_BASE}/retrieve/${key}"))()`;
-      await interaction.followUp({
-        content: `✅ API Loader Created by <@${uid}> — Key: \`${key}\``,
-        files: [{ attachment: Buffer.from(loader), name: "loader.lua" }],
-        ephemeral: false
-      });
+
+      const embed = new EmbedBuilder()
+        .setTitle("API Loader (copy this)")
+        .setDescription(`**Key:** \`${key}\`\n\n**Loader:**\n\`\`\`lua\n${loader}\n\`\`\``)
+        .setFooter({ text: `Requested by ${interaction.user.tag}` });
+
+      await interaction.followUp({ content: `✅ API Loader Created by <@${uid}>`, embeds: [embed], ephemeral: false });
     } catch (err) {
       console.error("API store error:", err?.response?.data || err?.message || err);
       await interaction.followUp({ content: "❌ API Loader failed.", ephemeral: true });
@@ -471,7 +458,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- /retrieve ----------
+  // /retrieve
   if (name === "retrieve") {
     const key = interaction.options.getString("key");
     await interaction.reply({ content: "🔎 Fetching script...", ephemeral: true });
@@ -490,7 +477,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- /ping ----------
+  // /ping
   if (name === "ping") {
     const start = Date.now();
     try { await axios.get(`${API_BASE}/`); } catch (_) {}
@@ -499,7 +486,7 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // ---------- /help ----------
+  // /help
   if (name === "help") {
     const embed = new EmbedBuilder()
       .setTitle("📘 NovaHub Command List")
@@ -507,7 +494,7 @@ client.on("interactionCreate", async (interaction) => {
       .setDescription(`
 **/info** — Show info & rules (first-run)
 **/verify / vf** — Accept rules
-**/obf** — Obfuscate Lua (costs tokens) — accept code or upload (.lua/.txt)
+**/obf** — Obfuscate Lua (costs tokens) — accepts code or .lua/.txt
 **/store** — Obfuscate + Save (costs tokens)
 **/api** — Obfuscate + Save + Generate Loader (costs tokens)
 **/retrieve** — Get stored script
@@ -516,8 +503,8 @@ client.on("interactionCreate", async (interaction) => {
 **/wl / bl** — Owner whitelist / remove whitelist
 **/ping** — API ping
 **/help** — Show this menu
-    `);
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+      `);
+    await interaction.reply({ embeds: [embed], ephemeral: false });
     return;
   }
 
@@ -525,7 +512,7 @@ client.on("interactionCreate", async (interaction) => {
   await interaction.reply({ content: "Unhandled command.", ephemeral: true });
 });
 
-// start bot
+// start
 client.once("ready", () => {
   console.log(`NovaHub bot online → ${client.user?.tag || "unknown"}`);
 });
