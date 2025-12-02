@@ -1,64 +1,183 @@
 require("dotenv").config();
 const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  EmbedBuilder,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
-  AttachmentBuilder
+    Client,
+    GatewayIntentBits,
+    SlashCommandBuilder,
+    Routes,
+    REST,
+    EmbedBuilder
 } = require("discord.js");
-
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
 
-/* ----------------------- Logging ----------------------- */
-const log = (...e) => console.log("[PROMETHEUS]", ...e);
-const error = (...e) => console.error("[PROMETHEUS:ERROR]", ...e);
+const API_BASE = "https://novahub-zd14.onrender.com";
 
-/* ----------------------- Client Setup ----------------------- */
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ],
-  partials: [Partials.Channel]
+    intents: [GatewayIntentBits.Guilds],
 });
 
-/* ----------------------- Bot Online ----------------------- */
-client.once("ready", () => {
-  log(`Bot logged in as ${client.user.tag}`);
-});
+// ===================================================
+// Slash Commands
+// ===================================================
+const commands = [
+    new SlashCommandBuilder()
+        .setName("obfuscate")
+        .setDescription("Obfuscate Lua code instantly")
+        .addStringOption(o =>
+            o.setName("code")
+             .setDescription("Paste your Lua script")
+             .setRequired(true)
+        ),
 
-/* ----------------------- Example Command ----------------------- */
-client.on("messageCreate", async (msg) => {
-  if (msg.author.bot) return;
+    new SlashCommandBuilder()
+        .setName("store")
+        .setDescription("Obfuscate and store a script → returns a key")
+        .addStringOption(o =>
+            o.setName("code")
+             .setDescription("Paste your Lua code")
+             .setRequired(true)
+        ),
 
-  if (msg.content === "!ping") {
-    msg.reply("Pong!");
-  }
+    new SlashCommandBuilder()
+        .setName("retrieve")
+        .setDescription("Retrieve a stored script by key")
+        .addStringOption(o =>
+            o.setName("key")
+             .setDescription("The script key")
+             .setRequired(true)
+        ),
 
-  if (msg.content.startsWith("!get")) {
+    new SlashCommandBuilder()
+        .setName("ping")
+        .setDescription("Check API response speed"),
+
+    new SlashCommandBuilder()
+        .setName("help")
+        .setDescription("Shows all NovaHub commands")
+];
+
+// ===================================================
+// Register Commands
+// ===================================================
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
     try {
-      const key = msg.content.split(" ")[1];
-
-      if (!key) return msg.reply("❌ Provide key. Example: `!get abc123`");
-
-      const url = `https://novahub-zd14.onrender.com/retrieve/${key}`;
-      const res = await axios.get(url);
-
-      const content = res.data.script;
-      if (!content) return msg.reply("❌ Not found");
-
-      msg.reply(`✅ Retrieved script:\n\`\`\`lua\n${content}\n\`\`\``);
+        await rest.put(
+            Routes.applicationCommands(process.env.CLIENT_ID),
+            { body: commands }
+        );
+        console.log("Slash commands registered.");
     } catch (err) {
-      msg.reply("❌ Error retrieving script.");
-      error(err);
+        console.error(err);
     }
-  }
+})();
+
+// ===================================================
+// On Ready
+// ===================================================
+client.once("ready", () => {
+    console.log(`NovaHub bot online → ${client.user.tag}`);
 });
 
-/* ----------------------- Login ----------------------- */
+// ===================================================
+// Interaction Handler
+// ===================================================
+client.on("interactionCreate", async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+
+    const name = interaction.commandName;
+
+    // ------------------------ /obfuscate ------------------------
+    if (name === "obfuscate") {
+        const code = interaction.options.getString("code");
+
+        await interaction.reply({ content: "🔄 Obfuscating...", ephemeral: true });
+
+        try {
+            const res = await axios.post(`${API_BASE}/obfuscate`, { code });
+            const obf = res.data.obfuscatedCode;
+
+            await interaction.followUp({
+                content: "✅ Obfuscation complete!",
+                files: [{ attachment: Buffer.from(obf), name: "obfuscated.lua" }],
+                ephemeral: true
+            });
+        } catch {
+            await interaction.followUp({ content: "❌ API error.", ephemeral: true });
+        }
+    }
+
+    // ------------------------ /store ------------------------
+    if (name === "store") {
+        const code = interaction.options.getString("code");
+
+        await interaction.reply({ content: "🔄 Processing...", ephemeral: true });
+
+        try {
+            const res = await axios.post(`${API_BASE}/obfuscate-and-store`, { script: code });
+
+            const key = res.data.key;
+
+            await interaction.followUp({
+                content: `✅ **Stored Successfully**\n🔑 Your key: \`${key}\`\nUse: \`/retrieve key:${key}\``,
+                ephemeral: true
+            });
+        } catch {
+            await interaction.followUp({ content: "❌ Storage failed.", ephemeral: true });
+        }
+    }
+
+    // ------------------------ /retrieve ------------------------
+    if (name === "retrieve") {
+        const key = interaction.options.getString("key");
+
+        await interaction.reply({ content: "🔎 Fetching script...", ephemeral: true });
+
+        try {
+            const res = await axios.get(`${API_BASE}/retrieve/${key}`, {
+                headers: { "User-Agent": "Roblox" }
+            });
+
+            await interaction.followUp({
+                content: "✅ Script retrieved!",
+                files: [{ attachment: Buffer.from(res.data), name: "retrieved.lua" }],
+                ephemeral: true
+            });
+        } catch {
+            await interaction.followUp({ content: "❌ Key not found.", ephemeral: true });
+        }
+    }
+
+    // ------------------------ /ping ------------------------
+    if (name === "ping") {
+        const start = Date.now();
+        await axios.get(`${API_BASE}/`);
+        const ms = Date.now() - start;
+
+        await interaction.reply({
+            content: `🏓 API Pong! **${ms}ms**`,
+            ephemeral: true
+        });
+    }
+
+    // ------------------------ /help ------------------------
+    if (name === "help") {
+        const embed = new EmbedBuilder()
+            .setTitle("📘 NovaHub Command List")
+            .setColor("Blue")
+            .setDescription(`
+**/obfuscate** — Obfuscate Lua  
+**/store** — Obfuscate + Save  
+**/retrieve** — Get stored script  
+**/ping** — Check API speed  
+**/help** — Show this menu
+            `);
+
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+});
+
+// ===================================================
+// Start Bot
+// ===================================================
 client.login(process.env.DISCORD_TOKEN);
