@@ -75,7 +75,7 @@ function uaPost(url, data, extraHeaders = {}) {
   });
 }
 
-// NEW: Desktop browser GET (for Cloudflare fallback)
+// Desktop browser GET (for Cloudflare fallback)
 function browserGet(url) {
   return axios.get(url, {
     headers: browserHeaders,
@@ -86,10 +86,13 @@ function browserGet(url) {
 /* =============================================
    OPTIONAL CACHE
 ============================================= */
+
 const cache = new Map();
+
 function cacheSet(key, value, ttl = 600000) {
   cache.set(key, { value, exp: Date.now() + ttl });
 }
+
 function cacheGet(key) {
   const entry = cache.get(key);
   if (!entry) return null;
@@ -128,7 +131,6 @@ async function bypassLinkvertisePath(pathPart, linkvertiseUT = null) {
   try {
     staticResp = await uaGet(staticUrl);
   } catch (err) {
-    // FALLBACK TO DESKTOP
     try {
       staticResp = await browserGet(staticUrl);
     } catch (err2) {
@@ -175,7 +177,6 @@ async function bypassLinkvertisePath(pathPart, linkvertiseUT = null) {
   try {
     postResp = await uaPost(targetEndpoint, postPayload);
   } catch (err) {
-    // FALLBACK TO DESKTOP
     try {
       postResp = await axios.post(targetEndpoint, postPayload, {
         headers: Object.assign(
@@ -222,7 +223,7 @@ function axiosErrorDetails(err) {
 
 app.get("/api/bypass", async (req, res) => {
   try {
-    /* ========== Base64 mode ========== */
+    // Base64 mode
     if (req.query.r) {
       const encoded = req.query.r;
       if (!isBase64(encoded))
@@ -235,7 +236,6 @@ app.get("/api/bypass", async (req, res) => {
       return res.json({ success: true, type: "base64", decodedUrl });
     }
 
-    /* ========== Auto URL detection ========== */
     if (req.query.url) {
       const rawUrl = req.query.url;
       let parsed;
@@ -250,7 +250,7 @@ app.get("/api/bypass", async (req, res) => {
         });
       }
 
-      /* Loot-link */
+      // loot-link.com
       if (parsed.hostname === "loot-link.com" && parsed.searchParams.get("r")) {
         const encoded = parsed.searchParams.get("r");
         if (!isBase64(encoded))
@@ -263,7 +263,7 @@ app.get("/api/bypass", async (req, res) => {
         return res.json({ success: true, service: "loot-link", decodedUrl });
       }
 
-      /* Platoboost */
+      // gateway.platoboost.com
       if (
         parsed.hostname === "gateway.platoboost.com" &&
         parsed.searchParams.get("id")
@@ -283,7 +283,7 @@ app.get("/api/bypass", async (req, res) => {
         });
       }
 
-      /* Generic ?r= */
+      // generic ?r=
       if (parsed.searchParams.get("r")) {
         const encoded = parsed.searchParams.get("r");
         if (!isBase64(encoded))
@@ -299,7 +299,7 @@ app.get("/api/bypass", async (req, res) => {
         });
       }
 
-      /* Generic ?id= */
+      // generic ?id=
       if (parsed.searchParams.get("id")) {
         const encoded = parsed.searchParams.get("id");
         if (isBase64(encoded)) {
@@ -312,7 +312,7 @@ app.get("/api/bypass", async (req, res) => {
         }
       }
 
-      /* Linkvertise */
+      // Linkvertise
       if (parsed.hostname.includes("linkvertise")) {
         const re = /^(\/[0-9]+\/[^\/]+)/;
         const match = re.exec(parsed.pathname);
