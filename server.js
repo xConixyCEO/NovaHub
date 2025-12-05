@@ -1,18 +1,16 @@
 // =======================================================
-// NovaHub Backend + Integrated Linkvertise Bypasser
-// Full Combined Version
+// NovaHub Backend (Obfuscation + Storage)
+// Full Updated Version (API-SERVICE.html Added)
 // =======================================================
-
-require("dotenv").config();
 
 const express = require("express");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+require("dotenv").config();
 const cors = require("cors");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -20,7 +18,6 @@ const port = process.env.PORT || 3000;
 // --------------------- Payload Limits ---------------------
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
-app.use(cors());
 
 // --------------------- Postgres Connection ---------------------
 const pool = new Pool({
@@ -34,18 +31,22 @@ pool.connect((err, client, done) => {
     }
     console.log("Connected to PostgreSQL.");
 
-    client.query(`
+    const tableSQL = `
         CREATE TABLE IF NOT EXISTS scripts (
             key VARCHAR(64) PRIMARY KEY,
             script TEXT NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
-    `, (err) => {
+    `;
+
+    client.query(tableSQL, (err) => {
         done();
         if (err) console.error("Table Creation Error:", err.stack);
         else console.log("DB Table Ready.");
     });
 });
+
+app.use(cors());
 
 // --------------------- Static Folder ---------------------
 app.use(express.static("public"));
@@ -62,9 +63,9 @@ const FALLBACK_WATERMARK = "--[[ OBFUSCATION FAILED: Returning raw Lua. Check yo
 const generateUniqueId = () => crypto.randomBytes(16).toString("hex");
 const applyFallback = (raw) => `${FALLBACK_WATERMARK}\n${raw}`;
 
-/* =======================================================
-   ===============  /obfuscate (NO STORAGE) ===============
-   ======================================================= */
+// =======================================================
+// ===============  /obfuscate (NO STORAGE) ===============
+// =======================================================
 app.post("/obfuscate", async (req, res) => {
     const rawLua = req.body.code;
     const preset = "Medium";
@@ -78,22 +79,34 @@ app.post("/obfuscate", async (req, res) => {
 
     try {
         fs.writeFileSync(tempFile, rawLua, "utf8");
+
         const cmd = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
 
         await new Promise((resolve) => {
             exec(cmd, (err, stdout, stderr) => {
                 fs.unlinkSync(tempFile);
 
-                if (err || stderr || !fs.existsSync(outputFile)) {
+                if (err || stderr) {
                     console.error("Obfuscator Error:", err?.message || stderr);
+
                     if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+
                     obfuscated = applyFallback(rawLua);
+                    success = false;
                     return resolve();
                 }
 
-                obfuscated = WATERMARK + fs.readFileSync(outputFile, "utf8");
+                if (!fs.existsSync(outputFile)) {
+                    obfuscated = applyFallback(rawLua);
+                    success = false;
+                    return resolve();
+                }
+
+                obfuscated = fs.readFileSync(outputFile, "utf8");
+                obfuscated = WATERMARK + obfuscated;
                 fs.unlinkSync(outputFile);
                 success = true;
+
                 resolve();
             });
         });
@@ -105,9 +118,9 @@ app.post("/obfuscate", async (req, res) => {
     res.json({ obfuscatedCode: obfuscated, success });
 });
 
-/* =======================================================
-   =========  /obfuscate-and-store → RETURN key ===========
-   ======================================================= */
+// =======================================================
+// ======  /obfuscate-and-store → RETURN key ==============
+// =======================================================
 app.post("/obfuscate-and-store", async (req, res) => {
     const rawLua = req.body.script;
     const preset = "Medium";
@@ -121,22 +134,34 @@ app.post("/obfuscate-and-store", async (req, res) => {
 
     try {
         fs.writeFileSync(tempFile, rawLua, "utf8");
+
         const cmd = `lua src/cli.lua --preset ${preset} --out ${outputFile} ${tempFile}`;
 
         await new Promise((resolve) => {
             exec(cmd, (err, stdout, stderr) => {
                 fs.unlinkSync(tempFile);
 
-                if (err || stderr || !fs.existsSync(outputFile)) {
+                if (err || stderr) {
                     console.error("Obfuscator Error:", err?.message || stderr);
+
                     if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+
                     obfuscated = applyFallback(rawLua);
+                    success = false;
                     return resolve();
                 }
 
-                obfuscated = WATERMARK + fs.readFileSync(outputFile, "utf8");
+                if (!fs.existsSync(outputFile)) {
+                    obfuscated = applyFallback(rawLua);
+                    success = false;
+                    return resolve();
+                }
+
+                obfuscated = fs.readFileSync(outputFile, "utf8");
+                obfuscated = WATERMARK + obfuscated;
                 fs.unlinkSync(outputFile);
                 success = true;
+
                 resolve();
             });
         });
@@ -152,6 +177,7 @@ app.post("/obfuscate-and-store", async (req, res) => {
             "INSERT INTO scripts(key, script) VALUES($1, $2)",
             [key, obfuscated]
         );
+
         res.status(201).json({ key, success });
     } catch (err) {
         console.error("DB Store Error:", err);
@@ -159,9 +185,9 @@ app.post("/obfuscate-and-store", async (req, res) => {
     }
 });
 
-/* =======================================================
-   ======  /retrieve/:key → Roblox Only ===================
-   ======================================================= */
+// =======================================================
+// ======  /retrieve/:key → Roblox Only ===================
+// =======================================================
 app.get("/retrieve/:key", async (req, res) => {
     const key = req.params.key;
     const ua = req.headers["user-agent"];
@@ -177,8 +203,9 @@ app.get("/retrieve/:key", async (req, res) => {
             [key]
         );
 
-        if (result.rows.length === 0)
+        if (result.rows.length === 0) {
             return res.status(404).send("-- Script Not Found.");
+        }
 
         res.setHeader("Content-Type", "text/plain");
         res.send(result.rows[0].script);
@@ -189,222 +216,156 @@ app.get("/retrieve/:key", async (req, res) => {
     }
 });
 
-/* =======================================================
-   ========== LINKVERTISE / LOOT-LINK / PLATOBOOST ========
-   =======================  BYPASSER  =====================
-   ======================================================= */
-
-// --- Util: Base64 check ---
-function isBase64(str) {
-    if (!str || typeof str !== 'string') return false;
-    const trimmed = str.trim();
-    if (trimmed === '') return false;
+// =======================================================
+// ===============  /dump (Generate dumper file) =========
+// =======================================================
+app.post("/dump", async (req, res) => {
     try {
-        const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
-        const reencoded = Buffer.from(decoded, 'utf8').toString('base64');
-        return reencoded === trimmed.replace(/=+$/, '');
-    } catch { return false; }
-}
-
-function randomString() {
-    return Math.floor(Math.random() * 1e7).toString();
-}
-
-const FAKE_UA =
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 13_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1 Mobile/15E148 Safari/604.1';
-
-function uaGet(url) {
-    return axios.get(url, {
-        headers: {
-            "User-Agent": FAKE_UA,
-            "Accept": "application/json, text/plain, */*"
-        },
-        timeout: 10000
-    });
-}
-
-function uaPost(url, data, extraHeaders = {}) {
-    return axios.post(url, data, {
-        headers: {
-            "User-Agent": FAKE_UA,
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/plain, */*",
-            ...extraHeaders
-        },
-        timeout: 10000
-    });
-}
-
-const cache = new Map();
-function cacheSet(key, value, ttl = 600000) {
-    cache.set(key, { value, exp: Date.now() + ttl });
-}
-function cacheGet(key) {
-    const entry = cache.get(key);
-    if (!entry || Date.now() > entry.exp) return null;
-    return entry.value;
-}
-
-function axiosErrorDetails(err) {
-    if (err?.response?.data) return err.response.data;
-    if (err?.message) return err.message;
-    return String(err);
-}
-
-// --- Linkvertise core bypass ---
-async function bypassLinkvertisePath(pathPart, ut = null) {
-    const cacheKey = `lv:${pathPart}:${ut || ''}`;
-    const cached = cacheGet(cacheKey);
-    if (cached) return cached;
-
-    // Warmup (ignore failures)
-    ["/captcha", "/countdown_impression?trafficOrigin=network", "/todo_impression?mobile=true&trafficOrigin=network"]
-        .forEach(p => uaGet(`https://publisher.linkvertise.com/api/v1/redirect/link${pathPart}${p}`).catch(() => {}));
-
-    const staticUrl = `https://publisher.linkvertise.com/api/v1/redirect/link/static${pathPart}`;
-    const staticResp = await uaGet(staticUrl).catch(e => {
-        throw { status: 502, message: "Failed static", details: axiosErrorDetails(e) };
-    });
-
-    const link = staticResp?.data?.data?.link;
-    if (!link) throw { status: 502, message: "Unexpected linkvertise static data" };
-
-    const type = link.target_type === "URL"
-        ? "target"
-        : link.target_type === "PASTE"
-        ? "paste"
-        : null;
-
-    if (!type) throw { status: 502, message: "Unsupported Linkvertise type" };
-
-    const serial = Buffer
-        .from(JSON.stringify({ timestamp: Date.now(), random: randomString(), link_id: link.id }))
-        .toString("base64");
-
-    const postUrl =
-        `https://publisher.linkvertise.com/api/v1/redirect/link${pathPart}/${type}` +
-        (ut ? `?X-Linkvertise-UT=${encodeURIComponent(ut)}` : "");
-
-    const postResp = await uaPost(postUrl, { serial }).catch(e => {
-        throw { status: 502, message: "POST failed", details: axiosErrorDetails(e) };
-    });
-
-    if (!postResp?.data?.data) throw { status: 502, message: "Invalid Linkvertise response" };
-
-    const result =
-        type === "target"
-            ? { decodedUrl: postResp.data.data.target }
-            : { paste: (postResp.data.data.paste || "").trim() };
-
-    cacheSet(cacheKey, result);
-    return result;
-}
-
-// ---- Unified bypass endpoint ----
-app.get("/api/bypass", async (req, res) => {
-    try {
-        // ?r=BASE64
-        if (req.query.r) {
-            if (!isBase64(req.query.r))
-                return res.status(400).json({ success: false, error: "Invalid base64" });
-
-            return res.json({
-                success: true,
-                type: "base64",
-                decodedUrl: Buffer.from(req.query.r, "base64").toString("utf8")
-            });
+        const encrypted = req.body.encrypted;
+        if (!encrypted || typeof encrypted !== "string" || encrypted.trim().length < 5) {
+            return res.status(400).json({ error: "Missing or invalid 'encrypted' Lua code." });
         }
 
-        // ?url=
-        if (req.query.url) {
-            const parsed = new URL(req.query.url);
+        const templatesDir = path.join(__dirname, "templates");
+        if (!fs.existsSync(templatesDir)) fs.mkdirSync(templatesDir, { recursive: true });
 
-            // loot-link
-            if (parsed.hostname === "loot-link.com" && parsed.searchParams.get("r")) {
-                const r = parsed.searchParams.get("r");
-                if (!isBase64(r)) return res.status(400).json({ success: false, error: "Invalid Base64" });
+        const templatePath = path.join(templatesDir, "dumper_template.lua");
 
-                return res.json({
-                    success: true,
-                    service: "loot-link",
-                    decodedUrl: Buffer.from(r, "base64").toString("utf8")
-                });
-            }
+        if (!fs.existsSync(templatePath)) {
+            const templateContent = `-- FILE-BASED MOONSEC V3 DUMPER
+-- Converted from the Roblox Studio ScriptEditor dumper
 
-            // platoboost
-            if (parsed.hostname === "gateway.platoboost.com" && parsed.searchParams.get("id")) {
-                const id = parsed.searchParams.get("id");
-                if (!isBase64(id)) return res.status(400).json({ success: false, error: "Invalid Base64" });
+-- ============================================================
+-- REQUIREMENTS:
+-- Executor must support loadstring
+-- Executor must support writefile()
+-- ============================================================
 
-                return res.json({
-                    success: true,
-                    service: "platoboost",
-                    decodedUrl: Buffer.from(id, "base64").toString("utf8")
-                });
-            }
+if not writefile then
+    error("Your executor does NOT support writefile(), required for file dumping.")
+end
 
-            // generic ?r=
-            if (parsed.searchParams.get("r")) {
-                const r = parsed.searchParams.get("r");
-                if (!isBase64(r)) return res.status(400).json({ success: false, error: "Invalid Base64" });
+if not pcall(loadstring, "") then
+    error("Your executor does NOT support loadstring(), required for MoonSec dumping.")
+end
 
-                return res.json({
-                    success: true,
-                    service: "generic-r",
-                    decodedUrl: Buffer.from(r, "base64").toString("utf8")
-                });
-            }
+local HttpService = game:GetService("HttpService")
 
-            // generic ?id=
-            if (parsed.searchParams.get("id")) {
-                const id = parsed.searchParams.get("id");
-                if (isBase64(id)) {
-                    return res.json({
-                        success: true,
-                        service: "generic-id",
-                        decodedUrl: Buffer.from(id, "base64").toString("utf8")
-                    });
-                }
-            }
+local DataToCode
+do
+    local ok, src = pcall(function()
+        return game:GetService("HttpService"):GetAsync(
+            "https://raw.githubusercontent.com/78n/Roblox/refs/heads/main/Lua/Libraries/DataToCode/DataToCode.luau"
+        )
+    end)
 
-            // LINKVERTISE
-            if (parsed.hostname.includes("linkvertise")) {
-                const m = /^(\/[0-9]+\/[^\/]+)/.exec(parsed.pathname);
-                if (!m)
-                    return res.status(400).json({ success: false, error: "Bad Linkvertise path" });
+    assert(ok, "Failed to load DataToCode: " .. tostring(src))
 
-                try {
-                    const data = await bypassLinkvertisePath(m[1], req.query.ut || req.headers["x-linkvertise-ut"]);
-                    return res.json({ success: true, service: "linkvertise", ...data });
-                } catch (err) {
-                    return res.status(err.status || 500).json({
-                        success: false,
-                        error: err.message || "LV Error",
-                        details: err.details
-                    });
-                }
-            }
+    local compiled = loadstring(src, "DataToCode")
+    DataToCode = compiled()
+end
 
-            return res.status(400).json({ success: false, error: "Unsupported URL" });
+local Location = HttpService:GenerateGUID(false)
+shared[Location] = DataToCode
+
+function DataToCode.output(tbl)
+    shared[Location] = nil
+
+    local Serialized = DataToCode.Convert(tbl, true)
+    local filename = "Dumped_" .. math.floor(os.clock()) .. ".lua"
+
+    writefile(filename, Serialized)
+
+    print("[MoonSec Dumper] Dump saved to:", filename)
+end
+
+local setfenv, error, loadstring, type, info =
+    setfenv, error, loadstring, type, debug.info
+
+local CClosures = {}
+
+local function newcclosure(func)
+    CClosures[func] = "C"
+    return func
+end
+
+local function islclosure(func)
+    return info(func, "l") ~= -1
+end
+
+local env = getfenv()
+
+env.setfenv = newcclosure(function(func, ...)
+    if type(func) == "function" then
+        error("'setfenv' cannot change environment of given object")
+    end
+    return setfenv(func, ...)
+end)
+
+env.debug = (function()
+    local newdebug = table.clone(debug)
+    newdebug.getinfo = newcclosure(function(func)
+        return {
+            what = CClosures[func] or islclosure(func) and "Lua" or "C"
+        }
+    end)
+    return newdebug
+end)()
+
+env.loadstring = newcclosure(function(code : string, chunkname : string, ...)
+    if type(code) == "string" then
+        local Start,End,Pattern,Constants =
+            code:find("([%a_][%w_]*%([%a_][%w_]*%((.)%)%))")
+
+        if Constants then
+            local Start, End, Reassign, Variable, full, Constants =
+                code:find("([^%s]([A-Za-z_][%w_]*)[%s]*=[%s]*)([A-Za-z_][%w_]*%([A-Za-z_][%w_]*%((.)%)%)).-return %2%(%.%.%.%)")
+
+            if not Start then
+                Start, End, Reassign, Variable, full, Constants =
+                    code:find("(([%a_][%w_]*)[%s]*=[%s]*)([%a_][%w_]*%([%a_][%w_]*%((.)%)%)).-return %2%(%.%.%.%)")
+            end
+
+            code =
+                code:sub(1, Start-1+#Reassign)
+                .. `(shared["{Location}"].output({Constants}) or function() end)`
+                .. code:sub(Start+#full+3)
+        end
+    end
+
+    return loadstring(code, chunkname, ...)
+end)
+
+-- Encrypted MoonSec V3 script here
+`;
+            fs.writeFileSync(templatePath, templateContent, "utf8");
+            console.log("Wrote missing templates/dumper_template.lua");
         }
 
-        return res.status(400).json({ success: false, error: "Missing ?r= or ?url=" });
+        let dumperTemplate = fs.readFileSync(templatePath, "utf8");
 
+        const finalDump = dumperTemplate.replace(
+            "-- Encrypted MoonSec V3 script here",
+            encrypted
+        );
+
+        const filename = `dumper_${Date.now()}.lua`;
+
+        res.json({ dumped: finalDump, filename });
     } catch (err) {
-        res.status(500).json({ success: false, error: "Internal error", details: axiosErrorDetails(err) });
+        console.error("Dump Error:", err);
+        res.status(500).json({ error: "Dump generator failed" });
     }
 });
 
-/* =======================================================
-   =============== Root ===================
-   ======================================================= */
+// =======================================================
+// Root
+// =======================================================
 app.get("/", (req, res) => {
-    res.send("NovaHub Backend + Bypasser Running.");
+    res.send("NovaHub Backend Running.");
 });
 
-/* =======================================================
-   =============== Start Server ===========================
-   ======================================================= */
-app.listen(port, () =>
-    console.log(`NovaHub API + Bypasser running on port ${port}`)
-);
+// =======================================================
+// Start Server
+// =======================================================
+app.listen(port, () => console.log(`NovaHub API running on port ${port}`));
