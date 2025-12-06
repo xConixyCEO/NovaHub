@@ -1,4 +1,12 @@
-// bot.js (updated) — includes /dump implementation
+// bot.js
+// NovaHub single-file bot
+// - Uses data/user.json for persistence (creates if missing)
+// - /info -> /verify (or /vf) required (DMs user on successful verify)
+// - /obf, /store, /api accept pasted code or .lua/.txt attachment
+// - /obf posts public file named <original>_obf.lua (option B)
+// - /api posts public embed with loader (user copies it)
+// - Token system, gifting, whitelist, owner bypass (env-driven)
+
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
@@ -30,7 +38,7 @@ const GIFT_TIMES = parseInt(process.env.GIFT_TIMES || "3", 10);
 const GIFT_RESET_HOURS = parseInt(process.env.GIFT_RESET_HOURS || "6", 10);
 
 // Command lists
-const COMMANDS_WITH_COST = (process.env.COMMANDS_WITH_COST || "/obf,/store,/api,/dump").split(",").filter(Boolean);
+const COMMANDS_WITH_COST = (process.env.COMMANDS_WITH_COST || "/obf,/store,/api").split(",").filter(Boolean);
 const FREE_COMMANDS = (process.env.FREE_COMMANDS || "/info,/verify,/vf,/view,/help,/ping,/retrieve").split(",").filter(Boolean);
 const PREMIUM_COMMANDS = (process.env.PREMIUM_COMMANDS || "/ApiService").split(",").filter(Boolean);
 
@@ -128,7 +136,7 @@ function addTokens(userId, amount) {
 // ========== Discord setup ==========
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Slash commands (attachments allowed for obf/store/api/dump)
+// Slash commands (attachments allowed for obf/store/api)
 const commands = [
   new SlashCommandBuilder()
     .setName("obf")
@@ -147,12 +155,6 @@ const commands = [
     .setDescription("Obfuscate+store and generate loader (accepts code or file)")
     .addStringOption(o => o.setName("code").setDescription("Paste Lua code"))
     .addAttachmentOption(a => a.setName("file").setDescription("Upload .lua or .txt file")),
-
-  new SlashCommandBuilder()
-    .setName("dump")
-    .setDescription("Wrap an encrypted MoonSec script into a runnable dumper file (.lua)")
-    .addStringOption(o => o.setName("code").setDescription("Paste encrypted MoonSec script"))
-    .addAttachmentOption(a => a.setName("file").setDescription("Upload .lua or .txt containing encrypted script")),
 
   new SlashCommandBuilder()
     .setName("retrieve")
@@ -456,36 +458,6 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
-  // /dump — wrap encrypted script into dumper template
-  if (name === "dump") {
-    await interaction.reply({ content: "🔄 Generating dumper file...", ephemeral: true });
-
-    let payload;
-    try {
-      payload = await getCodeFromInteraction();
-    } catch (e) {
-      await interaction.followUp({ content: `❌ ${e.message}`, ephemeral: true });
-      return;
-    }
-
-    try {
-      // Send to backend
-      const res = await axios.post(`${API_BASE}/dump`, { encrypted: payload.code }, { timeout: 120000 });
-      const dumped = res.data.dumped;
-      const filename = res.data.filename || `dumper_${Date.now()}.lua`;
-
-      await interaction.followUp({
-        content: `✅ Dumper generated! (requested by <@${uid}>)`,
-        files: [{ attachment: Buffer.from(dumped, "utf8"), name: filename }],
-        ephemeral: false
-      });
-    } catch (err) {
-      console.error("Dump error:", err?.response?.data || err?.message || err);
-      await interaction.followUp({ content: "❌ Dump generation failed.", ephemeral: true });
-    }
-    return;
-  }
-
   // /retrieve
   if (name === "retrieve") {
     const key = interaction.options.getString("key");
@@ -525,7 +497,6 @@ client.on("interactionCreate", async (interaction) => {
 **/obf** — Obfuscate Lua (costs tokens) — accepts code or .lua/.txt
 **/store** — Obfuscate + Save (costs tokens)
 **/api** — Obfuscate + Save + Generate Loader (costs tokens)
-**/dump** — Wrap encrypted MoonSec script into runnable dumper file
 **/retrieve** — Get stored script
 **/view** — Show token balance
 **/gift** — Owner/whitelist gift tokens
