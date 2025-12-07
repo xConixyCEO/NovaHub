@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NovaHub Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+  <style>
+    :root {
+      --panel: #0f1724;
+      --accent: #7c3aed;
+      --muted: #9aa0a6;
+      --card: rgba(255,255,255,0.03);
+    }
+    body { background: #0b0e15; color: #e6eef8; font-family: Inter, system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; }
+    .sidebar { background: linear-gradient(180deg,#0b1220,#0e1724); border-radius: 12px; padding: 18px; min-height: 520px; }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius: 12px; padding: 18px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.03); }
+    .muted { color: var(--muted); font-size: 0.95rem; }
+    .btn { padding: 8px 12px; border-radius: 8px; font-weight:600; cursor:pointer; }
+    .btn-primary { background: linear-gradient(90deg,var(--accent), #5b21b6); color: white; }
+    .tab { cursor:pointer; padding:10px 14px; border-radius:8px; }
+    .tab.active { background: rgba(124,58,237,0.12); color: white; }
+    textarea, input, select { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); color: inherit; padding: 10px; border-radius:8px; width:100%; }
+    .small-muted { font-size:0.9rem; color: #b8b8bf }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-7xl mx-auto grid grid-cols-12 gap-6">
+    <!-- Sidebar -->
+    <aside class="col-span-3">
+      <div class="sidebar card">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-14 h-14 rounded-lg bg-gradient-to-tr from-purple-700 to-indigo-600 flex items-center justify-center text-xl">NH</div>
+          <div>
+            <div id="user-name" class="font-semibold">Guest</div>
+            <div class="muted text-sm" id="user-sub">Not signed in</div>
+          </div>
+        </div>
+
+        <nav class="space-y-2">
+          <div class="tab active" data-tab="home"><i class="fas fa-home mr-2"></i> Home</div>
+          <div class="tab" data-tab="obfuscator"><i class="fas fa-code mr-2"></i> Obfuscator</div>
+          <div class="tab" data-tab="loader"><i class="fas fa-cloud-download-alt mr-2"></i> Script Loader</div>
+          <div class="tab" data-tab="scripts"><i class="fas fa-book mr-2"></i> My Scripts</div>
+          <div class="tab" data-tab="info"><i class="fas fa-info-circle mr-2"></i> Info</div>
+          <div class="tab" data-tab="settings"><i class="fas fa-cog mr-2"></i> Settings</div>
+        </nav>
+
+        <div class="mt-6">
+          <div class="muted text-sm">Discord / Google</div>
+          <div id="presence" class="mt-2 card">
+            <div id="presence-contents" class="text-sm muted">Not signed in</div>
+            <div class="mt-3 flex gap-2">
+              <button id="btn-discord" class="btn btn-primary"><i class="fab fa-discord mr-2"></i> Sign in with Discord</button>
+              <button id="btn-google" class="btn" style="background:#fff;color:#111"><i class="fab fa-google mr-2"></i> Sign in with Google</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="col-span-9 space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">Dashboard</h1>
+          <div class="muted">Welcome to NovaHub</div>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="search" placeholder="Search..." />
+          <button id="btn-open-signup" class="btn btn-primary">Sign Up (Email)</button>
+        </div>
+      </div>
+
+      <!-- Panels (see server for endpoints) -->
+      <section id="panel-home" class="card">
+        <div class="grid grid-cols-3 gap-6">
+          <div class="col-span-2">
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold">Last Data</h2>
+              <div class="muted">Overview</div>
+            </div>
+            <div class="mt-6">
+              <div style="height:220px;background:linear-gradient(90deg,#0b0f18,#101327);border-radius:10px"></div>
+            </div>
+          </div>
+          <div>
+            <div class="text-sm muted">Quick stats</div>
+            <div class="mt-4 space-y-3">
+              <div class="card small">
+                <div class="font-semibold">Authenticated</div>
+                <div class="muted text-sm mt-1">73.8%</div>
+              </div>
+              <div class="card small">
+                <div class="font-semibold">Disputed</div>
+                <div class="muted text-sm mt-1">0.081%</div>
+              </div>
+              <div class="card small">
+                <div class="font-semibold">Scripts</div>
+                <div id="stat-scripts" class="muted text-sm mt-1">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-obfuscator" class="card hidden">
+        <div class="flex items-start gap-6">
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">Obfuscator</h3>
+              <div class="muted">Paste Lua, choose preset, obfuscate</div>
+            </div>
+            <textarea id="lua-input" rows="10" class="mt-4">print("NovaHub Secure Script Initialized!")</textarea>
+            <div class="flex items-center gap-3 mt-3">
+              <select id="preset">
+                <option>Low</option>
+                <option selected>Medium</option>
+                <option>High</option>
+              </select>
+              <input id="file-upload" type="file" accept=".lua,.txt" />
+              <button id="btn-obf" class="btn btn-primary">Obfuscate</button>
+              <button id="btn-store" class="btn">Store (Generate Key)</button>
+              <div id="obf-status" class="muted ml-auto">Ready</div>
+            </div>
+          </div>
+          <div style="width:360px">
+            <h4 class="font-semibold">Output / Loader</h4>
+            <textarea id="lua-output" rows="8" readonly class="mt-3"></textarea>
+            <div class="flex gap-2 mt-3">
+              <button id="btn-download" class="btn">Download</button>
+              <button id="btn-copy" class="btn btn-primary">Copy Loader</button>
+            </div>
+            <div class="mt-4 muted">Warnings:</div>
+            <div id="warnings" class="mt-2 muted">No warnings</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-loader" class="card hidden">
+        <div class="flex items-start gap-6">
+          <div class="flex-1">
+            <h3 class="font-semibold">API Script Loader</h3>
+            <div class="muted">Manage your stored loader, edit code and re-deploy</div>
+            <div class="mt-4">
+              <select id="my-scripts-select"></select>
+              <textarea id="script-edit" rows="10" class="mt-3"></textarea>
+              <div class="flex gap-2 mt-3">
+                <button id="btn-update-script" class="btn btn-primary">Save changes</button>
+                <button id="btn-delete-script" class="btn">Delete script</button>
+                <div id="loader-warning" class="muted ml-auto">No issues</div>
+              </div>
+            </div>
+          </div>
+          <div style="width:300px">
+            <h4 class="font-semibold">Safety / Suspicious Activity</h4>
+            <div id="safety-box" class="mt-3 card muted">No suspicious activity detected.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-scripts" class="card hidden">
+        <h3 class="font-semibold">My Stored Scripts</h3>
+        <div id="scripts-list" class="mt-3"></div>
+      </section>
+
+      <section id="panel-info" class="card hidden">
+        <h3 class="font-semibold">Info</h3>
+        <p class="muted mt-3">This dashboard allows you to obfuscate, store and manage loader scripts. The loader endpoint is restricted to clients with the Roblox UA to reduce accidental exposure.</p>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Signup modal -->
+  <div id="signup-modal" class="fixed inset-0 z-50 hidden items-center justify-center">
+    <div class="absolute inset-0 bg-black/60"></div>
+    <div class="relative w-full max-w-md p-6 card z-50">
+      <h3 class="text-lg font-bold mb-2">Create Account (Email)</h3>
+      <div id="signup-msg" class="small-muted mb-2"></div>
+      <input id="signup-email" placeholder="Email" class="mb-2" />
+      <input id="signup-username" placeholder="Username (optional)" class="mb-2" />
+      <input id="signup-pass" placeholder="Password" type="password" class="mb-2" />
+      <div class="flex gap-2">
+        <button id="signup-do" class="btn btn-primary">Create</button>
+        <button id="signup-close" class="btn">Close</button>
+      </div>
+      <hr class="my-3" />
+      <div class="small-muted">If you already have a code from email verification enter it here:</div>
+      <input id="verify-code" placeholder="Verification code" class="my-2" />
+      <button id="verify-do" class="btn btn-primary">Verify</button>
+    </div>
+  </div>
+
+  <script>
+    const API_ROOT = '';
+    const tabs = document.querySelectorAll('.tab');
+    const panels = {
+      home: document.getElementById('panel-home'),
+      obfuscator: document.getElementById('panel-obfuscator'),
+      loader: document.getElementById('panel-loader'),
+      scripts: document.getElementById('panel-scripts'),
+      info: document.getElementById('panel-info')
+    };
+    function setActive(name) {
+      for (const t of tabs) t.classList.toggle('active', t.dataset.tab === name);
+      for (const k in panels) panels[k].classList.toggle('hidden', k !== name);
+    }
+    tabs.forEach(t => t.addEventListener('click', () => setActive(t.dataset.tab)));
+    setActive('home');
+
+    const $ = s => document.querySelector(s);
+
+    // Signup modal wiring
+    $('#btn-open-signup').addEventListener('click', ()=> $('#signup-modal').classList.remove('hidden'));
+    $('#signup-close').addEventListener('click', ()=> $('#signup-modal').classList.add('hidden'));
+
+    $('#signup-do').addEventListener('click', async () => {
+      const email = $('#signup-email').value.trim();
+      const pass = $('#signup-pass').value;
+      const username = $('#signup-username').value.trim();
+      if (!email || !pass) { $('#signup-msg').textContent = 'Email and password required'; return; }
+      $('#signup-msg').textContent = 'Creating...';
+      try {
+        const res = await fetch(API_ROOT + '/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pass, username })});
+        const j = await res.json();
+        if (!res.ok) { $('#signup-msg').textContent = j.error || 'Server error'; return; }
+        localStorage.setItem('fy_access', j.accessToken);
+        localStorage.setItem('fy_refresh', j.refreshToken);
+        $('#signup-msg').textContent = 'Created — verification email sent. Enter code below.';
+        loadScriptsList();
+      } catch (e) { $('#signup-msg').textContent = 'Network error'; }
+    });
+
+    $('#verify-do').addEventListener('click', async () => {
+      const code = $('#verify-code').value.trim();
+      if (!code) return alert('Enter code');
+      const uid = localStorage.getItem('fy_uid');
+      // We stored uid earlier? If not, backend verifies by code only - here call endpoint
+      const res = await fetch(API_ROOT + '/auth/verify-email', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code })});
+      const j = await res.json();
+      if (!res.ok) return alert('Verify failed: ' + (j.error || 'server error'));
+      alert('Email verified — you are good to go');
+    });
+
+    // Auth buttons
+    $('#btn-discord').addEventListener('click', () => {
+      window.open(API_ROOT + '/auth/discord', '_blank', 'width=600,height=800');
+    });
+    $('#btn-google').addEventListener('click', () => {
+      window.open(API_ROOT + '/auth/google', '_blank', 'width=600,height=800');
+    });
+
+    window.addEventListener('message', (ev) => {
+      try {
+        const data = ev.data;
+        if (data && data.accessToken) {
+          localStorage.setItem('fy_access', data.accessToken);
+          localStorage.setItem('fy_refresh', data.refreshToken);
+          $('#user-name').textContent = data.user.username || (data.user.email || 'User');
+          $('#user-sub').textContent = 'Signed in';
+          loadScriptsList();
+        }
+      } catch (e) {}
+    }, false);
+
+    // Obfuscator/upload/store logic (same as earlier)
+    $('#file-upload').addEventListener('change', (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader(); r.onload = () => $('#lua-input').value = r.result; r.readAsText(f);
+    });
+
+    $('#btn-obf').addEventListener('click', async () => {
+      const code = $('#lua-input').value;
+      if (!code.trim()) return alert('Paste code first');
+      $('#obf-status').textContent = 'Obfuscating...';
+      const res = await fetch(API_ROOT + '/obfuscate', { method:'POST', headers: { 'Content-Type':'application/json', Authorization: 'Bearer ' + localStorage.getItem('fy_access') }, body: JSON.stringify({ code, preset: $('#preset').value })});
+      const j = await res.json();
+      if (!res.ok) { $('#obf-status').textContent = 'Failed: ' + (j.error || 'server error'); return; }
+      $('#lua-output').value = j.obfuscatedCode || j.obfuscated || '';
+      $('#obf-status').textContent = 'Obfuscation complete';
+    });
+
+    $('#btn-store').addEventListener('click', async () => {
+      const script = $('#lua-input').value;
+      if (!script.trim()) return alert('Paste code first');
+      $('#obf-status').textContent = 'Storing...';
+      const res = await fetch(API_ROOT + '/obfuscate-and-store', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization: 'Bearer ' + localStorage.getItem('fy_access') }, body: JSON.stringify({ script, preset: $('#preset').value, title: 'Saved script ' + (new Date()).toISOString() })});
+      const j = await res.json();
+      if (!res.ok) { $('#obf-status').textContent = 'Store failed: ' + (j.error || 'server error'); return; }
+      const key = j.key; const url = API_ROOT + '/retrieve/' + key;
+      $('#lua-output').value = `loadstring(game:HttpGet("${url}"))()`;
+      $('#obf-status').textContent = 'Stored ✓ Key: ' + key;
+      await loadScriptsList();
+    });
+
+    // scripts list & loader editing
+    async function loadScriptsList() {
+      const res = await fetch(API_ROOT + '/api/scripts', { headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+      if (!res.ok) { $('#scripts-list').innerHTML = '<div class="muted">Sign in to see scripts</div>'; return; }
+      const arr = await res.json();
+      $('#stat-scripts').textContent = arr.length;
+      $('#scripts-list').innerHTML = '';
+      $('#my-scripts-select').innerHTML = '';
+      for (const s of arr) {
+        const el = document.createElement('div'); el.className='p-3 mb-2 card';
+        el.innerHTML = `<div class="font-semibold">${s.title || s.key}</div><div class="muted text-sm">Uses: ${s.uses || 0} · Created: ${new Date(s.created_at).toLocaleString()}</div>
+          <div class="mt-2"><button data-key="${s.key}" class="btn btn-primary btn-get">Get Loader</button> <button data-key="${s.key}" class="btn btn-delete">Delete</button></div>`;
+        $('#scripts-list').appendChild(el);
+        const opt = document.createElement('option'); opt.value = s.key; opt.textContent = s.title || s.key; $('#my-scripts-select').appendChild(opt);
+      }
+      document.querySelectorAll('.btn-get').forEach(b => b.addEventListener('click', (ev) => {
+        const k = ev.target.dataset.key;
+        $('#lua-output').value = `loadstring(game:HttpGet("${API_ROOT + '/retrieve/' + k}"))()`;
+        setActive('obfuscator');
+      }));
+      document.querySelectorAll('.btn-delete').forEach(b => b.addEventListener('click', async (ev) => {
+        const k = ev.target.dataset.key;
+        if (!confirm('Delete script?')) return;
+        const d = await fetch(API_ROOT + '/api/scripts/' + k, { method: 'DELETE', headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+        if (!d.ok) return alert('Delete failed');
+        loadScriptsList();
+      }));
+      if ($('#my-scripts-select').options.length) {
+        $('#my-scripts-select').value = $('#my-scripts-select').options[0].value;
+        selectScript($('#my-scripts-select').value);
+      } else {
+        $('#script-edit').value = '';
+      }
+    }
+
+    async function selectScript(key) {
+      const r = await fetch(API_ROOT + '/api/scripts/' + key, { headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+      if (!r.ok) { $('#script-edit').value = ''; return; }
+      const meta = await r.json();
+      // meta.script contains the stored obfuscated script (or fallback). Let the user edit that.
+      $('#script-edit').value = meta.script || '';
+    }
+
+    $('#my-scripts-select').addEventListener('change', (e) => selectScript(e.target.value));
+
+    $('#btn-update-script').addEventListener('click', async () => {
+      const key = $('#my-scripts-select').value;
+      if (!key) return alert('Select script');
+      const content = $('#script-edit').value;
+      if (!confirm('Saving will create new stored key and delete old. Continue?')) return;
+      const r = await fetch(API_ROOT + '/obfuscate-and-store', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('fy_access') }, body: JSON.stringify({ script: content, preset: 'Medium', title: 'Updated ' + new Date().toLocaleString() })});
+      const j = await r.json();
+      if (!r.ok) return alert('Save failed');
+      await fetch(API_ROOT + '/api/scripts/' + key, { method: 'DELETE', headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+      alert('Saved to new key: ' + j.key);
+      loadScriptsList();
+    });
+
+    $('#btn-delete-script').addEventListener('click', async () => {
+      const key = $('#my-scripts-select').value;
+      if (!key) return alert('Select script');
+      if (!confirm('Delete script?')) return;
+      const d = await fetch(API_ROOT + '/api/scripts/' + key, { method: 'DELETE', headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+      if (!d.ok) return alert('Delete failed');
+      loadScriptsList();
+    });
+
+    $('#btn-copy').addEventListener('click', () => {
+      const out = $('#lua-output').value;
+      if (!out) return alert('Nothing to copy');
+      navigator.clipboard.writeText(out).then(()=> alert('Copied loader to clipboard'));
+    });
+    $('#btn-download').addEventListener('click', () => {
+      const out = $('#lua-output').value;
+      if (!out) return;
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/plain' })); a.download = 'novahub_loader.lua'; document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    (async function init() {
+      if (localStorage.getItem('fy_access')) {
+        await loadScriptsList();
+        // get profile
+        const me = await fetch(API_ROOT + '/auth/me', { headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+        if (me.ok) {
+          const u = await me.json();
+          $('#user-name').textContent = u.username || (u.email || 'User');
+          $('#user-sub').textContent = u.role ? `Role: ${u.role}` : 'Signed in';
+        }
+      }
+    })();
+  </script>
+</body>
+            </html>
