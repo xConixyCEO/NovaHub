@@ -3,389 +3,848 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>NovaHub Dashboard</title>
+  <title>NovaHub — Unified Dashboard</title>
+
+  <!-- Tailwind CDN (keeps styling concise) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+
+  <!-- CodeMirror 6 (basic editor) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@6.0.1/theme-one-dark.css" />
   <style>
-    :root {
-      --panel: #0f1724;
-      --accent: #7c3aed;
-      --muted: #9aa0a6;
+    /* --- Theme & base styles --- */
+    :root{
+      --bg:#070914;
+      --panel:#0f1724;
+      --accent:#7c3aed;
+      --accent-2:#53E0C9;
+      --muted:#9aa0a6;
       --card: rgba(255,255,255,0.03);
     }
-    body { background: #0b0e15; color: #e6eef8; font-family: Inter, system-ui, -apple-system, Roboto, "Helvetica Neue", Arial; }
-    .sidebar { background: linear-gradient(180deg,#0b1220,#0e1724); border-radius: 12px; padding: 18px; min-height: 520px; }
-    .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius: 12px; padding: 18px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.03); }
-    .muted { color: var(--muted); font-size: 0.95rem; }
-    .btn { padding: 8px 12px; border-radius: 8px; font-weight:600; cursor:pointer; }
-    .btn-primary { background: linear-gradient(90deg,var(--accent), #5b21b6); color: white; }
-    .tab { cursor:pointer; padding:10px 14px; border-radius:8px; }
-    .tab.active { background: rgba(124,58,237,0.12); color: white; }
-    textarea, input, select { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); color: inherit; padding: 10px; border-radius:8px; width:100%; }
-    .small-muted { font-size:0.9rem; color: #b8b8bf }
+    html,body{height:100%}
+    body{
+      margin:0; padding:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient(circle at 10% 10%, #071029 0%, #000 60%);
+      color: #e8eefb;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+    .card{ background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; padding:1rem; border:1px solid rgba(255,255,255,0.03); box-shadow:0 10px 30px rgba(0,0,0,0.6);}
+    .muted{ color:var(--muted); }
+    .btn { padding:8px 12px; border-radius:8px; font-weight:600; cursor:pointer; }
+    .btn-primary{ background: linear-gradient(90deg,var(--accent), #5b21b6); color:white; border:none; }
+    .tab{ cursor:pointer; padding:8px 12px; border-radius:8px; display:flex; gap:10px; align-items:center; }
+    .tab.active{ background: rgba(124,58,237,0.12); color:white; }
+    .logo-round{ width:48px; height:48px; border-radius:12px; overflow:hidden; background:linear-gradient(90deg,#6b2be2,#53e0c9); display:flex; align-items:center; justify-content:center; font-weight:700; color:white; }
+    .small-muted{ font-size:0.85rem; color:#b8b8bf; }
+    textarea, input, select { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:inherit; padding:0.6rem; border-radius:8px; outline:none; }
+    .hidden{ display:none; }
+    .presence-bubble{ width:12px; height:12px; border-radius:50%; display:inline-block; margin-left:8px; vertical-align:middle; }
+    .presence-online{ background:#43b581; box-shadow:0 0 10px rgba(67,181,129,0.18); }
+    .presence-offline{ background:#747f8d; }
+    /* editor placeholder */
+    .editor-box{ min-height:240px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); overflow:hidden; }
+    /* responsive */
+    @media (max-width:1000px){
+      .sidebar-col{ display:none; }
+    }
   </style>
 </head>
-<body class="p-8">
-  <div class="max-w-7xl mx-auto grid grid-cols-12 gap-6">
-    <!-- Sidebar -->
-    <aside class="col-span-3">
-      <div class="sidebar card">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="w-14 h-14 rounded-lg bg-gradient-to-tr from-purple-700 to-indigo-600 flex items-center justify-center text-xl">NH</div>
-          <div>
-            <div id="user-name" class="font-semibold">Guest</div>
-            <div class="muted text-sm" id="user-sub">Not signed in</div>
-          </div>
-        </div>
-
-        <nav class="space-y-2">
-          <div class="tab active" data-tab="home"><i class="fas fa-home mr-2"></i> Home</div>
-          <div class="tab" data-tab="obfuscator"><i class="fas fa-code mr-2"></i> Obfuscator</div>
-          <div class="tab" data-tab="loader"><i class="fas fa-cloud-download-alt mr-2"></i> Script Loader</div>
-          <div class="tab" data-tab="scripts"><i class="fas fa-book mr-2"></i> My Scripts</div>
-          <div class="tab" data-tab="info"><i class="fas fa-info-circle mr-2"></i> Info</div>
-          <div class="tab" data-tab="settings"><i class="fas fa-cog mr-2"></i> Settings</div>
-        </nav>
-
-        <div class="mt-6">
-          <div class="muted text-sm">Discord / Google</div>
-          <div id="presence" class="mt-2 card">
-            <div id="presence-contents" class="text-sm muted">Not signed in</div>
-            <div class="mt-3 flex gap-2">
-              <button id="btn-discord" class="btn btn-primary"><i class="fab fa-discord mr-2"></i> Sign in with Discord</button>
-              <button id="btn-google" class="btn" style="background:#fff;color:#111"><i class="fab fa-google mr-2"></i> Sign in with Google</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Main -->
-    <main class="col-span-9 space-y-6">
-      <div class="flex items-center justify-between">
+<body>
+  <div class="max-w-7xl mx-auto p-6">
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-4">
+        <div class="logo-round card">NH</div>
         <div>
-          <h1 class="text-2xl font-bold">Dashboard</h1>
-          <div class="muted">Welcome to NovaHub</div>
-        </div>
-        <div class="flex items-center gap-3">
-          <input id="search" placeholder="Search..." />
-          <button id="btn-open-signup" class="btn btn-primary">Sign Up (Email)</button>
+          <div class="text-xl font-bold">NovaHub <span class="text-sm muted">Dashboard</span></div>
+          <div class="small-muted">Obfuscation · Storage · ALU</div>
         </div>
       </div>
 
-      <!-- Panels (see server for endpoints) -->
-      <section id="panel-home" class="card">
-        <div class="grid grid-cols-3 gap-6">
-          <div class="col-span-2">
-            <div class="flex items-center justify-between">
-              <h2 class="text-lg font-semibold">Last Data</h2>
-              <div class="muted">Overview</div>
-            </div>
-            <div class="mt-6">
-              <div style="height:220px;background:linear-gradient(90deg,#0b0f18,#101327);border-radius:10px"></div>
+      <div id="top-controls" class="flex items-center gap-4">
+        <div id="presence-ui" class="flex items-center gap-3">
+          <img id="presence-avatar" src="" alt="" class="w-10 h-10 rounded-md hidden">
+          <div id="presence-name" class="small-muted">Not signed in</div>
+          <span id="presence-bubble" class="presence-bubble presence-offline"></span>
+        </div>
+
+        <div id="auth-controls" class="flex items-center gap-2">
+          <button id="btn-open-login" class="btn btn-primary">Sign In</button>
+          <button id="btn-open-register" class="btn">Sign Up</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-12 gap-6">
+      <!-- Sidebar -->
+      <aside class="col-span-3 sidebar-col">
+        <div class="card sidebar p-4">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="logo-round">NH</div>
+            <div>
+              <div id="sidebar-username" class="font-semibold">Guest</div>
+              <div class="small-muted">Account</div>
             </div>
           </div>
-          <div>
-            <div class="text-sm muted">Quick stats</div>
-            <div class="mt-4 space-y-3">
-              <div class="card small">
-                <div class="font-semibold">Authenticated</div>
-                <div class="muted text-sm mt-1">73.8%</div>
-              </div>
-              <div class="card small">
-                <div class="font-semibold">Disputed</div>
-                <div class="muted text-sm mt-1">0.081%</div>
-              </div>
-              <div class="card small">
-                <div class="font-semibold">Scripts</div>
-                <div id="stat-scripts" class="muted text-sm mt-1">0</div>
-              </div>
+
+          <nav id="nav-tabs" class="space-y-2">
+            <div class="tab active" data-tab="home"><i class="fas fa-house"></i> Home</div>
+            <div class="tab" data-tab="obfuscator"><i class="fas fa-code"></i> Obfuscator</div>
+            <div class="tab" data-tab="loader"><i class="fas fa-download"></i> Script Loader</div>
+            <div class="tab" data-tab="scripts"><i class="fas fa-book"></i> My Scripts</div>
+            <div class="tab" data-tab="info"><i class="fas fa-circle-info"></i> Info</div>
+            <div class="tab" data-tab="settings"><i class="fas fa-gear"></i> Settings</div>
+          </nav>
+
+          <div class="mt-6">
+            <div class="small-muted mb-2">Quick actions</div>
+            <div class="flex flex-col gap-2">
+              <button id="quick-obfuscate" class="btn btn-primary">Obfuscate Now</button>
+              <button id="quick-store" class="btn">Store Script</button>
+              <button id="open-alu" class="btn">View ALU Logs</button>
             </div>
           </div>
         </div>
-      </section>
+      </aside>
 
-      <section id="panel-obfuscator" class="card hidden">
-        <div class="flex items-start gap-6">
-          <div class="flex-1">
-            <div class="flex items-center justify-between">
-              <h3 class="font-semibold">Obfuscator</h3>
-              <div class="muted">Paste Lua, choose preset, obfuscate</div>
+      <!-- Main content -->
+      <main class="col-span-9 space-y-6">
+        <!-- Home -->
+        <section id="panel-home" class="card">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-semibold">Welcome to NovaHub</h2>
+              <div class="small-muted">Use the sidebar to navigate — obfuscate, store, and manage your loader scripts.</div>
             </div>
-            <textarea id="lua-input" rows="10" class="mt-4">print("NovaHub Secure Script Initialized!")</textarea>
-            <div class="flex items-center gap-3 mt-3">
-              <select id="preset">
-                <option>Low</option>
-                <option selected>Medium</option>
-                <option>High</option>
-              </select>
-              <input id="file-upload" type="file" accept=".lua,.txt" />
-              <button id="btn-obf" class="btn btn-primary">Obfuscate</button>
-              <button id="btn-store" class="btn">Store (Generate Key)</button>
-              <div id="obf-status" class="muted ml-auto">Ready</div>
+            <div class="text-right">
+              <div class="small-muted">Scripts stored</div>
+              <div id="stat-scripts" class="font-semibold">0</div>
             </div>
           </div>
-          <div style="width:360px">
-            <h4 class="font-semibold">Output / Loader</h4>
-            <textarea id="lua-output" rows="8" readonly class="mt-3"></textarea>
-            <div class="flex gap-2 mt-3">
-              <button id="btn-download" class="btn">Download</button>
-              <button id="btn-copy" class="btn btn-primary">Copy Loader</button>
-            </div>
-            <div class="mt-4 muted">Warnings:</div>
-            <div id="warnings" class="mt-2 muted">No warnings</div>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="panel-loader" class="card hidden">
-        <div class="flex items-start gap-6">
-          <div class="flex-1">
-            <h3 class="font-semibold">API Script Loader</h3>
-            <div class="muted">Manage your stored loader, edit code and re-deploy</div>
-            <div class="mt-4">
-              <select id="my-scripts-select"></select>
-              <textarea id="script-edit" rows="10" class="mt-3"></textarea>
+        <!-- Obfuscator -->
+        <section id="panel-obfuscator" class="card hidden">
+          <div class="flex gap-6">
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <h3 class="font-semibold">Obfuscator</h3>
+                <div class="small-muted">Paste your Lua code and obfuscate</div>
+              </div>
+
+              <div class="mt-4">
+                <label class="small-muted">Preset</label>
+                <select id="preset" class="mt-1">
+                  <option>Low</option>
+                  <option selected>Medium</option>
+                  <option>High</option>
+                </select>
+              </div>
+
+              <div class="mt-4">
+                <label class="small-muted">Lua code</label>
+                <div id="editor-obf" class="editor-box mt-2"><textarea id="lua-input" rows="12">print("NovaHub Secure Script Initialized!")</textarea></div>
+              </div>
+
+              <div class="flex items-center gap-3 mt-3">
+                <input id="obf-file" type="file" accept=".lua,.txt" />
+                <button id="btn-obfuscate" class="btn btn-primary">Obfuscate</button>
+                <button id="btn-store" class="btn">Obfuscate & Store</button>
+                <div id="obf-status" class="small-muted ml-auto">Ready</div>
+              </div>
+            </div>
+
+            <div style="width:360px">
+              <h4 class="font-semibold">Output / Loader</h4>
+              <textarea id="lua-output" rows="10" readonly class="w-full mt-3"></textarea>
               <div class="flex gap-2 mt-3">
-                <button id="btn-update-script" class="btn btn-primary">Save changes</button>
-                <button id="btn-delete-script" class="btn">Delete script</button>
-                <div id="loader-warning" class="muted ml-auto">No issues</div>
+                <button id="btn-download" class="btn">Download</button>
+                <button id="btn-copy-loader" class="btn btn-primary">Copy Loader</button>
+              </div>
+
+              <div class="mt-4">
+                <div class="small-muted">Warnings</div>
+                <div id="obf-warnings" class="mt-2 small-muted">No warnings.</div>
               </div>
             </div>
           </div>
-          <div style="width:300px">
-            <h4 class="font-semibold">Safety / Suspicious Activity</h4>
-            <div id="safety-box" class="mt-3 card muted">No suspicious activity detected.</div>
+        </section>
+
+        <!-- Loader -->
+        <section id="panel-loader" class="card hidden">
+          <div class="flex gap-6">
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <h3 class="font-semibold">API Script Loader</h3>
+                <div class="small-muted">Edit stored loader script and re-deploy</div>
+              </div>
+
+              <div class="mt-4">
+                <label class="small-muted">Select your script</label>
+                <select id="my-scripts-select" class="mt-2 w-full"></select>
+              </div>
+
+              <div class="mt-4">
+                <label class="small-muted">Script content (editable)</label>
+                <div id="editor-loader" class="editor-box mt-2"><textarea id="script-edit" rows="12"></textarea></div>
+              </div>
+
+              <div class="flex items-center gap-2 mt-3">
+                <button id="btn-save-script" class="btn btn-primary">Save (create new key)</button>
+                <button id="btn-delete-script" class="btn">Delete selected</button>
+                <div id="loader-status" class="small-muted ml-auto">No issues</div>
+              </div>
+            </div>
+
+            <div style="width:320px">
+              <h4 class="font-semibold">Safety / Suspicious activity</h4>
+              <div id="safety-box" class="card mt-3 small-muted">No suspicious activity detected.</div>
+
+              <div class="mt-4">
+                <h5 class="font-semibold">Loader Preview</h5>
+                <div class="small-muted mt-2">Copy loader for use in Roblox (loader requires your script to be public and retrievable by the Roblox UA).</div>
+                <textarea id="loader-preview" rows="4" class="mt-2 w-full" readonly></textarea>
+                <div class="flex gap-2 mt-2">
+                  <button id="btn-copy-preview" class="btn">Copy</button>
+                  <button id="btn-download-preview" class="btn btn-primary">Download</button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="panel-scripts" class="card hidden">
-        <h3 class="font-semibold">My Stored Scripts</h3>
-        <div id="scripts-list" class="mt-3"></div>
-      </section>
+        <!-- Scripts list -->
+        <section id="panel-scripts" class="card hidden">
+          <h3 class="font-semibold">My Stored Scripts</h3>
+          <div id="scripts-list" class="mt-3"></div>
+        </section>
 
-      <section id="panel-info" class="card hidden">
-        <h3 class="font-semibold">Info</h3>
-        <p class="muted mt-3">This dashboard allows you to obfuscate, store and manage loader scripts. The loader endpoint is restricted to clients with the Roblox UA to reduce accidental exposure.</p>
-      </section>
+        <!-- Info -->
+        <section id="panel-info" class="card hidden">
+          <h3 class="font-semibold">Info</h3>
+          <p class="small-muted mt-3">This dashboard allows you to obfuscate, store and manage loader scripts. The loader endpoint is restricted to clients that present the Roblox UA to reduce accidental exposure. Email signups use a verification code flow to confirm ownership of the address.</p>
+        </section>
 
-    </main>
+        <!-- Settings -->
+        <section id="panel-settings" class="card hidden">
+          <h3 class="font-semibold">Settings</h3>
+          <div class="mt-3 small-muted">Manage account & OAuth providers.</div>
+          <div class="mt-4">
+            <button id="btn-link-discord" class="btn btn-primary">Connect Discord</button>
+            <button id="btn-link-google" class="btn">Connect Google</button>
+            <button id="btn-logout" class="btn ml-4">Sign Out</button>
+          </div>
+        </section>
+      </main>
+    </div>
   </div>
 
-  <!-- Signup modal -->
-  <div id="signup-modal" class="fixed inset-0 z-50 hidden items-center justify-center">
+  <!-- Modal area (login/register/verify) -->
+  <div id="modal-root" class="fixed inset-0 z-50 hidden items-center justify-center">
     <div class="absolute inset-0 bg-black/60"></div>
     <div class="relative w-full max-w-md p-6 card z-50">
-      <h3 class="text-lg font-bold mb-2">Create Account (Email)</h3>
-      <div id="signup-msg" class="small-muted mb-2"></div>
-      <input id="signup-email" placeholder="Email" class="mb-2" />
-      <input id="signup-username" placeholder="Username (optional)" class="mb-2" />
-      <input id="signup-pass" placeholder="Password" type="password" class="mb-2" />
-      <div class="flex gap-2">
-        <button id="signup-do" class="btn btn-primary">Create</button>
-        <button id="signup-close" class="btn">Close</button>
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="modal-title" class="text-lg font-bold">Sign In</h3>
+        <button id="modal-close" class="btn">Close</button>
       </div>
-      <hr class="my-3" />
-      <div class="small-muted">If you already have a code from email verification enter it here:</div>
-      <input id="verify-code" placeholder="Verification code" class="my-2" />
-      <button id="verify-do" class="btn btn-primary">Verify</button>
+      <div id="modal-body">
+        <!-- injected -->
+      </div>
     </div>
   </div>
 
   <script>
-    const API_ROOT = '';
-    const tabs = document.querySelectorAll('.tab');
-    const panels = {
-      home: document.getElementById('panel-home'),
-      obfuscator: document.getElementById('panel-obfuscator'),
-      loader: document.getElementById('panel-loader'),
-      scripts: document.getElementById('panel-scripts'),
-      info: document.getElementById('panel-info')
-    };
-    function setActive(name) {
-      for (const t of tabs) t.classList.toggle('active', t.dataset.tab === name);
-      for (const k in panels) panels[k].classList.toggle('hidden', k !== name);
-    }
-    tabs.forEach(t => t.addEventListener('click', () => setActive(t.dataset.tab)));
-    setActive('home');
+    /*********************************************************
+     * NovaHub frontend (single-file)
+     * Notes:
+     * - Set API_ROOT to your backend origin if different from the frontend origin.
+     * - This file expects server endpoints described in comments near the top of the code.
+     *********************************************************/
+    const API_ROOT = ''; // e.g. 'https://novahub-zd14.onrender.com' or '' for same origin
 
+    // ----------------- Utilities -----------------
     const $ = s => document.querySelector(s);
+    const $$ = s => Array.from(document.querySelectorAll(s));
+    function el(tag, attrs = {}, ...children) { const e = document.createElement(tag); Object.assign(e, attrs); for (const c of children) if (typeof c === 'string') e.appendChild(document.createTextNode(c)); else if (c) e.appendChild(c); return e; }
+    function setStatus(sel, txt, err=false) { const node = document.querySelector(sel); if (!node) return; node.textContent = txt; node.style.color = err ? '#ff9090' : ''; }
 
-    // Signup modal wiring
-    $('#btn-open-signup').addEventListener('click', ()=> $('#signup-modal').classList.remove('hidden'));
-    $('#signup-close').addEventListener('click', ()=> $('#signup-modal').classList.add('hidden'));
+    // ----------------- Token storage & auth helpers -----------------
+    function storeTokens(access, refresh) {
+      localStorage.setItem('nh_access', access);
+      localStorage.setItem('nh_refresh', refresh);
+    }
+    function clearTokens() {
+      localStorage.removeItem('nh_access');
+      localStorage.removeItem('nh_refresh');
+    }
+    function getAccess() { return localStorage.getItem('nh_access'); }
+    function getRefresh() { return localStorage.getItem('nh_refresh'); }
 
-    $('#signup-do').addEventListener('click', async () => {
-      const email = $('#signup-email').value.trim();
-      const pass = $('#signup-pass').value;
-      const username = $('#signup-username').value.trim();
-      if (!email || !pass) { $('#signup-msg').textContent = 'Email and password required'; return; }
-      $('#signup-msg').textContent = 'Creating...';
+    async function apiFetch(path, opts = {}) {
+      opts.headers = opts.headers || {};
+      if (getAccess()) opts.headers['Authorization'] = 'Bearer ' + getAccess();
+      if (!opts.method) opts.method = 'GET';
+      const res = await fetch((API_ROOT || '') + path, opts);
+      if (res.status === 401) {
+        // try refresh
+        const ok = await tryRefresh();
+        if (ok) {
+          opts.headers['Authorization'] = 'Bearer ' + getAccess();
+          return fetch((API_ROOT || '') + path, opts);
+        }
+      }
+      return res;
+    }
+
+    async function tryRefresh() {
+      const refresh = getRefresh();
+      if (!refresh) return false;
       try {
-        const res = await fetch(API_ROOT + '/auth/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pass, username })});
-        const j = await res.json();
-        if (!res.ok) { $('#signup-msg').textContent = j.error || 'Server error'; return; }
-        localStorage.setItem('fy_access', j.accessToken);
-        localStorage.setItem('fy_refresh', j.refreshToken);
-        $('#signup-msg').textContent = 'Created — verification email sent. Enter code below.';
-        loadScriptsList();
-      } catch (e) { $('#signup-msg').textContent = 'Network error'; }
-    });
+        const r = await fetch((API_ROOT || '') + '/auth/refresh', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: refresh })
+        });
+        if (!r.ok) { clearTokens(); updateUiSignedOut(); return false; }
+        const j = await r.json();
+        storeTokens(j.accessToken, j.refreshToken);
+        return true;
+      } catch(e) { clearTokens(); updateUiSignedOut(); return false; }
+    }
 
-    $('#verify-do').addEventListener('click', async () => {
-      const code = $('#verify-code').value.trim();
-      if (!code) return alert('Enter code');
-      const uid = localStorage.getItem('fy_uid');
-      // We stored uid earlier? If not, backend verifies by code only - here call endpoint
-      const res = await fetch(API_ROOT + '/auth/verify-email', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code })});
-      const j = await res.json();
-      if (!res.ok) return alert('Verify failed: ' + (j.error || 'server error'));
-      alert('Email verified — you are good to go');
-    });
+    // ----------------- Modal (login/register/verify) -----------------
+    const modalRoot = $('#modal-root');
+    const modalTitle = $('#modal-title');
+    const modalBody = $('#modal-body');
 
-    // Auth buttons
-    $('#btn-discord').addEventListener('click', () => {
-      window.open(API_ROOT + '/auth/discord', '_blank', 'width=600,height=800');
-    });
-    $('#btn-google').addEventListener('click', () => {
-      window.open(API_ROOT + '/auth/google', '_blank', 'width=600,height=800');
-    });
+    function openModal(title, htmlContentGenerator) {
+      modalTitle.textContent = title;
+      modalBody.innerHTML = '';
+      modalBody.appendChild(htmlContentGenerator());
+      modalRoot.classList.remove('hidden');
+      modalRoot.style.display = 'flex';
+    }
+    function closeModal() { modalRoot.classList.add('hidden'); modalRoot.style.display='none'; }
 
+    $('#modal-close').addEventListener('click', closeModal);
+
+    // ----------------- Auth: Login/Register with Email (verification) -----------------
+    // Register steps:
+    // 1) user enters email+password+username -> POST /auth/send-verification { email } (server sends code)
+    // 2) user inputs code they received -> POST /auth/verify { email, code } -> server returns success
+    // 3) now call /auth/register with email,password,username and server will create account (or registration may happen during verification flow—adjust to server implementation)
+
+    function showRegisterModal() {
+      openModal('Create account', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <div class="space-y-3">
+            <input id="reg-email" placeholder="Email" class="w-full" />
+            <input id="reg-username" placeholder="Username (optional)" class="w-full" />
+            <input id="reg-pass" type="password" placeholder="Password" class="w-full" />
+            <div class="flex gap-2">
+              <button id="reg-send-code" class="btn btn-primary">Send verification code</button>
+              <button id="reg-discord" class="btn">Sign up with Discord</button>
+              <button id="reg-google" class="btn">Sign up with Google</button>
+            </div>
+            <div id="reg-msg" class="small-muted"></div>
+            <div id="reg-verify-area" class="hidden mt-3">
+              <input id="reg-code" placeholder="Verification code" class="w-full" />
+              <div class="flex gap-2 mt-2">
+                <button id="reg-verify" class="btn btn-primary">Verify & Create</button>
+                <button id="reg-resend" class="btn">Resend</button>
+              </div>
+            </div>
+          </div>
+        `;
+        // wire events
+        setTimeout(() => {
+          container.querySelector('#reg-send-code').addEventListener('click', async () => {
+            const email = container.querySelector('#reg-email').value.trim();
+            if (!email) { container.querySelector('#reg-msg').textContent = 'Enter an email'; return; }
+            container.querySelector('#reg-msg').textContent = 'Sending code...';
+            try {
+              const r = await fetch((API_ROOT||'') + '/auth/send-verification', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+              });
+              const j = await r.json();
+              if (!r.ok) { container.querySelector('#reg-msg').textContent = j.error || 'Failed to send'; return; }
+              container.querySelector('#reg-msg').textContent = 'Code sent. Check your email.';
+              container.querySelector('#reg-verify-area').classList.remove('hidden');
+            } catch (e) {
+              container.querySelector('#reg-msg').textContent = 'Network error';
+            }
+          });
+
+          container.querySelector('#reg-resend').addEventListener('click', async () => {
+            const email = container.querySelector('#reg-email').value.trim();
+            if (!email) { container.querySelector('#reg-msg').textContent = 'Enter an email'; return; }
+            container.querySelector('#reg-msg').textContent = 'Resending...';
+            try {
+              const r = await fetch((API_ROOT||'') + '/auth/send-verification', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+              });
+              const j = await r.json();
+              if (!r.ok) { container.querySelector('#reg-msg').textContent = j.error || 'Failed to send'; return; }
+              container.querySelector('#reg-msg').textContent = 'Code resent.';
+            } catch (e) {
+              container.querySelector('#reg-msg').textContent = 'Network error';
+            }
+          });
+
+          container.querySelector('#reg-verify').addEventListener('click', async () => {
+            const email = container.querySelector('#reg-email').value.trim();
+            const username = container.querySelector('#reg-username').value.trim();
+            const password = container.querySelector('#reg-pass').value;
+            const code = container.querySelector('#reg-code').value.trim();
+            if (!email || !password || !code) { container.querySelector('#reg-msg').textContent = 'Missing fields'; return; }
+            container.querySelector('#reg-msg').textContent = 'Verifying...';
+            try {
+              const verify = await fetch((API_ROOT||'') + '/auth/verify', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code })
+              });
+              const vj = await verify.json();
+              if (!verify.ok) { container.querySelector('#reg-msg').textContent = vj.error || 'Verification failed'; return; }
+              // Now register
+              const reg = await fetch((API_ROOT||'') + '/auth/register', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, username })
+              });
+              const rj = await reg.json();
+              if (!reg.ok) { container.querySelector('#reg-msg').textContent = rj.error || 'Registration failed'; return; }
+              // store tokens & update UI
+              storeTokens(rj.accessToken, rj.refreshToken);
+              container.querySelector('#reg-msg').textContent = 'Account created. Signed in.';
+              closeModal();
+              await updateUiSignedIn();
+            } catch (e) {
+              container.querySelector('#reg-msg').textContent = 'Network error';
+            }
+          });
+
+          // oauth buttons
+          container.querySelector('#reg-discord').addEventListener('click', () => {
+            openOAuthPopup('/auth/discord');
+          });
+          container.querySelector('#reg-google').addEventListener('click', () => {
+            openOAuthPopup('/auth/google');
+          });
+        }, 20);
+
+        return container;
+      });
+    }
+
+    function showLoginModal() {
+      openModal('Sign in', () => {
+        const container = document.createElement('div');
+        container.innerHTML = `
+          <div class="space-y-3">
+            <input id="login-email" placeholder="Email" class="w-full" />
+            <input id="login-pass" type="password" placeholder="Password" class="w-full" />
+            <div class="flex gap-2">
+              <button id="login-do" class="btn btn-primary">Sign In</button>
+              <button id="login-discord" class="btn">Discord</button>
+              <button id="login-google" class="btn">Google</button>
+            </div>
+            <div id="login-msg" class="small-muted"></div>
+            <div class="mt-2 small-muted">Or sign in with a verification code:</div>
+            <div class="flex gap-2 mt-2">
+              <input id="login-code-email" placeholder="Email" />
+              <button id="login-send-code" class="btn">Send code</button>
+            </div>
+            <div id="login-verify-area" class="hidden mt-2">
+              <input id="login-code" placeholder="Code" />
+              <button id="login-verify" class="btn btn-primary mt-2">Verify & Sign In</button>
+            </div>
+          </div>
+        `;
+
+        setTimeout(() => {
+          container.querySelector('#login-do').addEventListener('click', async () => {
+            const email = container.querySelector('#login-email').value.trim();
+            const password = container.querySelector('#login-pass').value;
+            if (!email || !password) { container.querySelector('#login-msg').textContent = 'Missing fields'; return; }
+            container.querySelector('#login-msg').textContent = 'Signing in...';
+            try {
+              const res = await fetch((API_ROOT||'') + '/auth/login', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+              });
+              const j = await res.json();
+              if (!res.ok) { container.querySelector('#login-msg').textContent = j.error || 'Login failed'; return; }
+              storeTokens(j.accessToken, j.refreshToken);
+              container.querySelector('#login-msg').textContent = 'Signed in';
+              closeModal();
+              await updateUiSignedIn();
+            } catch (e) { container.querySelector('#login-msg').textContent = 'Network error'; }
+          });
+
+          container.querySelector('#login-discord').addEventListener('click', () => openOAuthPopup('/auth/discord'));
+          container.querySelector('#login-google').addEventListener('click', () => openOAuthPopup('/auth/google'));
+
+          container.querySelector('#login-send-code').addEventListener('click', async () => {
+            const email = container.querySelector('#login-code-email').value.trim();
+            if (!email) { container.querySelector('#login-msg').textContent = 'Enter email'; return; }
+            container.querySelector('#login-msg').textContent = 'Sending code...';
+            try {
+              const r = await fetch((API_ROOT||'') + '/auth/send-verification', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email })
+              });
+              const j = await r.json();
+              if (!r.ok) { container.querySelector('#login-msg').textContent = j.error || 'Failed'; return; }
+              container.querySelector('#login-msg').textContent = 'Code sent to email';
+              container.querySelector('#login-verify-area').classList.remove('hidden');
+            } catch (e) { container.querySelector('#login-msg').textContent = 'Network error'; }
+          });
+
+          container.querySelector('#login-verify').addEventListener('click', async () => {
+            const email = container.querySelector('#login-code-email').value.trim();
+            const code = container.querySelector('#login-code').value.trim();
+            if (!email || !code) { container.querySelector('#login-msg').textContent = 'Missing fields'; return; }
+            container.querySelector('#login-msg').textContent = 'Verifying...';
+            try {
+              const r = await fetch((API_ROOT||'') + '/auth/verify', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code })
+              });
+              const j = await r.json();
+              if (!r.ok) { container.querySelector('#login-msg').textContent = j.error || 'Verification failed'; return; }
+              // Server should return tokens or instruct to exchange — we'll attempt to log in by requesting /auth/login-with-code or similar
+              // For flexibility, expect server to return tokens in response to verify
+              if (j.accessToken) {
+                storeTokens(j.accessToken, j.refreshToken);
+                container.querySelector('#login-msg').textContent = 'Signed in';
+                closeModal(); await updateUiSignedIn();
+              } else {
+                container.querySelector('#login-msg').textContent = 'Verification succeeded; please sign in.'; 
+              }
+            } catch (e) { container.querySelector('#login-msg').textContent = 'Network error'; }
+          });
+
+        }, 20);
+
+        return container;
+      });
+    }
+
+    // OAuth popup helper
+    function openOAuthPopup(path) {
+      const url = (API_ROOT || '') + path;
+      const popup = window.open(url, '_blank', 'width=600,height=800');
+      // We'll listen for postMessage from popup (server callback should postMessage tokens)
+      // popup flow: server should return an HTML that posts tokens back to opener via window.opener.postMessage(...)
+    }
+
+    // Listen for postMessage tokens from OAuth popups
     window.addEventListener('message', (ev) => {
       try {
-        const data = ev.data;
-        if (data && data.accessToken) {
-          localStorage.setItem('fy_access', data.accessToken);
-          localStorage.setItem('fy_refresh', data.refreshToken);
-          $('#user-name').textContent = data.user.username || (data.user.email || 'User');
-          $('#user-sub').textContent = 'Signed in';
-          loadScriptsList();
+        const d = ev.data;
+        if (!d) return;
+        if (d.accessToken) {
+          storeTokens(d.accessToken, d.refreshToken);
+          updateUiSignedIn();
+          closeModal();
+          alert('Signed in via OAuth');
         }
-      } catch (e) {}
-    }, false);
-
-    // Obfuscator/upload/store logic (same as earlier)
-    $('#file-upload').addEventListener('change', (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      const r = new FileReader(); r.onload = () => $('#lua-input').value = r.result; r.readAsText(f);
+      } catch(e){}
     });
 
-    $('#btn-obf').addEventListener('click', async () => {
+    // ----------------- UI update functions -----------------
+    async function updateUiSignedIn() {
+      const u = await getMe();
+      if (!u) { updateUiSignedOut(); return; }
+      $('#sidebar-username').textContent = u.username || u.email || 'User';
+      $('#presence-name').textContent = u.username || u.email;
+      if (u.discord_avatar || u.discord_id) {
+        $('#presence-avatar').src = u.discord_avatar ? `https://cdn.discordapp.com/avatars/${u.discord_id}/${u.discord_avatar}.png?size=128` : '';
+        $('#presence-avatar').classList.remove('hidden');
+        $('#presence-bubble').classList.remove('presence-offline'); $('#presence-bubble').classList.add('presence-online');
+      } else {
+        $('#presence-avatar').classList.add('hidden');
+        $('#presence-bubble').classList.remove('presence-online'); $('#presence-bubble').classList.add('presence-offline');
+      }
+      $('#auth-controls').innerHTML = `<div class="small-muted">Hi, ${u.username || u.email}</div><button id="btn-logout-top" class="btn">Sign out</button>`;
+      $('#btn-logout-top').addEventListener('click', doLogout);
+      // load scripts & stats
+      await loadScripts();
+      await loadActivity();
+    }
+
+    function updateUiSignedOut() {
+      $('#sidebar-username').textContent = 'Guest';
+      $('#presence-name').textContent = 'Not signed in';
+      $('#presence-avatar').classList.add('hidden');
+      $('#presence-bubble').classList.remove('presence-online'); $('#presence-bubble').classList.add('presence-offline');
+      $('#auth-controls').innerHTML = `<button id="btn-open-login" class="btn btn-primary">Sign In</button><button id="btn-open-register" class="btn">Sign Up</button>`;
+      $('#btn-open-login').addEventListener('click', showLoginModal);
+      $('#btn-open-register').addEventListener('click', showRegisterModal);
+      $('#scripts-list').innerHTML = '<div class="small-muted">Sign in to see your stored scripts.</div>';
+      $('#my-scripts-select').innerHTML = '';
+      $('#stat-scripts').textContent = '0';
+    }
+
+    async function getMe(){
+      try {
+        const res = await apiFetch('/auth/me');
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) { return null; }
+    }
+
+    async function doLogout() {
+      const refresh = getRefresh();
+      try {
+        await fetch((API_ROOT||'') + '/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: refresh }) });
+      } catch(e){}
+      clearTokens();
+      updateUiSignedOut();
+    }
+
+    // ----------------- Navigation tabs -----------------
+    const tabs = $$('#nav-tabs .tab');
+    const panels = {
+      home: $('#panel-home'),
+      obfuscator: $('#panel-obfuscator'),
+      loader: $('#panel-loader'),
+      scripts: $('#panel-scripts'),
+      info: $('#panel-info'),
+      settings: $('#panel-settings')
+    };
+    function setActiveTab(name) {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      Object.keys(panels).forEach(k => {
+        if (!panels[k]) return;
+        panels[k].classList.toggle('hidden', k !== name);
+      });
+      // load data on demand
+      if (name === 'scripts') loadScripts();
+      if (name === 'loader') loadScripts(); // ensure scripts loaded
+    }
+    tabs.forEach(t => t.addEventListener('click', () => setActiveTab(t.dataset.tab)));
+    setActiveTab('home');
+
+    // ----------------- Obfuscator actions -----------------
+    $('#obf-file').addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => $('#lua-input').value = r.result;
+      r.readAsText(f);
+    });
+
+    $('#btn-obfuscate').addEventListener('click', async () => {
       const code = $('#lua-input').value;
-      if (!code.trim()) return alert('Paste code first');
-      $('#obf-status').textContent = 'Obfuscating...';
-      const res = await fetch(API_ROOT + '/obfuscate', { method:'POST', headers: { 'Content-Type':'application/json', Authorization: 'Bearer ' + localStorage.getItem('fy_access') }, body: JSON.stringify({ code, preset: $('#preset').value })});
-      const j = await res.json();
-      if (!res.ok) { $('#obf-status').textContent = 'Failed: ' + (j.error || 'server error'); return; }
-      $('#lua-output').value = j.obfuscatedCode || j.obfuscated || '';
-      $('#obf-status').textContent = 'Obfuscation complete';
+      if (!code.trim()) { setStatus('#obf-status', 'Paste Lua code first', true); return; }
+      setStatus('#obf-status', 'Obfuscating...');
+      try {
+        const res = await apiFetch('/obfuscate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, preset: $('#preset').value })
+        });
+        const j = await res.json();
+        if (!res.ok) { setStatus('#obf-status', j.error || 'Failed', true); return; }
+        $('#lua-output').value = j.obfuscatedCode || j.obfuscated || '';
+        setStatus('#obf-status', 'Obfuscation complete');
+      } catch (e) {
+        setStatus('#obf-status', 'Network error', true);
+      }
     });
 
     $('#btn-store').addEventListener('click', async () => {
       const script = $('#lua-input').value;
-      if (!script.trim()) return alert('Paste code first');
-      $('#obf-status').textContent = 'Storing...';
-      const res = await fetch(API_ROOT + '/obfuscate-and-store', { method:'POST', headers:{ 'Content-Type':'application/json', Authorization: 'Bearer ' + localStorage.getItem('fy_access') }, body: JSON.stringify({ script, preset: $('#preset').value, title: 'Saved script ' + (new Date()).toISOString() })});
-      const j = await res.json();
-      if (!res.ok) { $('#obf-status').textContent = 'Store failed: ' + (j.error || 'server error'); return; }
-      const key = j.key; const url = API_ROOT + '/retrieve/' + key;
-      $('#lua-output').value = `loadstring(game:HttpGet("${url}"))()`;
-      $('#obf-status').textContent = 'Stored ✓ Key: ' + key;
-      await loadScriptsList();
+      if (!script.trim()) { setStatus('#obf-status', 'Paste Lua code first', true); return; }
+      setStatus('#obf-status', 'Storing...');
+      try {
+        const res = await apiFetch('/obfuscate-and-store', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ script, preset: $('#preset').value, title: `Saved ${new Date().toISOString()}` })
+        });
+        const j = await res.json();
+        if (!res.ok) { setStatus('#obf-status', j.error || 'Store failed', true); return; }
+        const key = j.key;
+        const url = (API_ROOT || '') + '/retrieve/' + key;
+        $('#lua-output').value = `loadstring(game:HttpGet("${url}"))()`;
+        setStatus('#obf-status', 'Stored ✓ Key: ' + key);
+        await loadScripts();
+      } catch (e) { setStatus('#obf-status', 'Network error', true); }
     });
 
-    // scripts list & loader editing
-    async function loadScriptsList() {
-      const res = await fetch(API_ROOT + '/api/scripts', { headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
-      if (!res.ok) { $('#scripts-list').innerHTML = '<div class="muted">Sign in to see scripts</div>'; return; }
+    $('#btn-copy-loader').addEventListener('click', () => {
+      const out = $('#lua-output').value;
+      if (!out) return alert('Nothing to copy');
+      navigator.clipboard.writeText(out).then(()=> alert('Copied loader'));
+    });
+    $('#btn-download').addEventListener('click', () => {
+      const out = $('#lua-output').value;
+      if (!out) return;
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/plain' })); a.download = 'nova_loader.lua'; document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    // ----------------- Scripts list management -----------------
+    async function loadScripts() {
+      const res = await apiFetch('/api/scripts');
+      if (!res.ok) { $('#scripts-list').innerHTML = '<div class="small-muted">Sign in to see your stored scripts.</div>'; $('#stat-scripts').textContent = '0'; $('#my-scripts-select').innerHTML = ''; return; }
       const arr = await res.json();
       $('#stat-scripts').textContent = arr.length;
-      $('#scripts-list').innerHTML = '';
-      $('#my-scripts-select').innerHTML = '';
+      const container = $('#scripts-list'); container.innerHTML = '';
+      const select = $('#my-scripts-select');
+      select.innerHTML = '';
       for (const s of arr) {
-        const el = document.createElement('div'); el.className='p-3 mb-2 card';
-        el.innerHTML = `<div class="font-semibold">${s.title || s.key}</div><div class="muted text-sm">Uses: ${s.uses || 0} · Created: ${new Date(s.created_at).toLocaleString()}</div>
+        const item = el('div', { className: 'p-3 mb-2 card' });
+        item.innerHTML = `<div class="font-semibold">${s.title || s.key}</div><div class="small-muted text-sm">Uses: ${s.uses || 0} · Created: ${new Date(s.created_at).toLocaleString()}</div>
           <div class="mt-2"><button data-key="${s.key}" class="btn btn-primary btn-get">Get Loader</button> <button data-key="${s.key}" class="btn btn-delete">Delete</button></div>`;
-        $('#scripts-list').appendChild(el);
-        const opt = document.createElement('option'); opt.value = s.key; opt.textContent = s.title || s.key; $('#my-scripts-select').appendChild(opt);
+        container.appendChild(item);
+
+        const opt = document.createElement('option'); opt.value = s.key; opt.textContent = s.title || s.key; select.appendChild(opt);
       }
-      document.querySelectorAll('.btn-get').forEach(b => b.addEventListener('click', (ev) => {
-        const k = ev.target.dataset.key;
-        $('#lua-output').value = `loadstring(game:HttpGet("${API_ROOT + '/retrieve/' + k}"))()`;
-        setActive('obfuscator');
+
+      // wire buttons
+      $$('.btn-get').forEach(b => b.addEventListener('click', (ev) => {
+        const k = ev.currentTarget.dataset.key;
+        const url = (API_ROOT || '') + '/retrieve/' + k;
+        $('#loader-preview').value = `loadstring(game:HttpGet("${url}"))()`;
+        setActiveTab('obfuscator');
+        $('#lua-output').value = `loadstring(game:HttpGet("${url}"))()`;
       }));
-      document.querySelectorAll('.btn-delete').forEach(b => b.addEventListener('click', async (ev) => {
-        const k = ev.target.dataset.key;
+
+      $$('.btn-delete').forEach(b => b.addEventListener('click', async (ev) => {
+        const k = ev.currentTarget.dataset.key;
         if (!confirm('Delete script?')) return;
-        const d = await fetch(API_ROOT + '/api/scripts/' + k, { method: 'DELETE', headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+        const d = await apiFetch('/api/scripts/' + k, { method: 'DELETE' });
         if (!d.ok) return alert('Delete failed');
-        loadScriptsList();
+        await loadScripts();
       }));
-      if ($('#my-scripts-select').options.length) {
-        $('#my-scripts-select').value = $('#my-scripts-select').options[0].value;
-        selectScript($('#my-scripts-select').value);
+
+      // load first script content into editor (fetch metadata -> but server does not return full script by /api/scripts so ask for /api/scripts/:key if needed)
+      if (select.options.length) {
+        select.value = select.options[0].value;
+        await selectScript(select.value);
       } else {
         $('#script-edit').value = '';
       }
     }
 
     async function selectScript(key) {
-      const r = await fetch(API_ROOT + '/api/scripts/' + key, { headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+      const r = await apiFetch('/api/scripts/' + key);
       if (!r.ok) { $('#script-edit').value = ''; return; }
       const meta = await r.json();
-      // meta.script contains the stored obfuscated script (or fallback). Let the user edit that.
-      $('#script-edit').value = meta.script || '';
+      // Some servers might include script content; if not, we fetch via retrieve but that endpoint requires Roblox UA — so we only populate metadata here
+      // We'll allow editing by fetching script from server via a dedicated admin endpoint or by storing script content in meta (server should support it)
+      $('#script-edit').value = meta.script || '-- script content not available for direct edit (server must expose it) --';
     }
 
     $('#my-scripts-select').addEventListener('change', (e) => selectScript(e.target.value));
 
-    $('#btn-update-script').addEventListener('click', async () => {
+    $('#btn-save-script').addEventListener('click', async () => {
       const key = $('#my-scripts-select').value;
-      if (!key) return alert('Select script');
+      if (!key) return alert('Select script first');
       const content = $('#script-edit').value;
-      if (!confirm('Saving will create new stored key and delete old. Continue?')) return;
-      const r = await fetch(API_ROOT + '/obfuscate-and-store', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + localStorage.getItem('fy_access') }, body: JSON.stringify({ script: content, preset: 'Medium', title: 'Updated ' + new Date().toLocaleString() })});
+      if (!confirm('Saving will create a new stored key and delete the old. Continue?')) return;
+      const r = await apiFetch('/obfuscate-and-store', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script: content, preset: 'Medium', title: 'Updated ' + new Date().toLocaleString() })
+      });
       const j = await r.json();
-      if (!r.ok) return alert('Save failed');
-      await fetch(API_ROOT + '/api/scripts/' + key, { method: 'DELETE', headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+      if (!r.ok) return alert('Save failed: ' + (j.error || 'server error'));
+      // delete old
+      await apiFetch('/api/scripts/' + key, { method: 'DELETE' });
       alert('Saved to new key: ' + j.key);
-      loadScriptsList();
+      await loadScripts();
     });
 
     $('#btn-delete-script').addEventListener('click', async () => {
       const key = $('#my-scripts-select').value;
-      if (!key) return alert('Select script');
+      if (!key) return alert('Select script first');
       if (!confirm('Delete script?')) return;
-      const d = await fetch(API_ROOT + '/api/scripts/' + key, { method: 'DELETE', headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
+      const d = await apiFetch('/api/scripts/' + key, { method: 'DELETE' });
       if (!d.ok) return alert('Delete failed');
-      loadScriptsList();
+      await loadScripts();
     });
 
-    $('#btn-copy').addEventListener('click', () => {
-      const out = $('#lua-output').value;
+    $('#btn-copy-preview').addEventListener('click', () => {
+      const out = $('#loader-preview').value;
       if (!out) return alert('Nothing to copy');
-      navigator.clipboard.writeText(out).then(()=> alert('Copied loader to clipboard'));
+      navigator.clipboard.writeText(out).then(()=> alert('Copied loader'));
     });
-    $('#btn-download').addEventListener('click', () => {
-      const out = $('#lua-output').value;
+    $('#btn-download-preview').addEventListener('click', () => {
+      const out = $('#loader-preview').value;
       if (!out) return;
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out], { type: 'text/plain' })); a.download = 'novahub_loader.lua'; document.body.appendChild(a); a.click(); a.remove();
     });
 
-    (async function init() {
-      if (localStorage.getItem('fy_access')) {
-        await loadScriptsList();
-        // get profile
-        const me = await fetch(API_ROOT + '/auth/me', { headers: { Authorization: 'Bearer ' + localStorage.getItem('fy_access') }});
-        if (me.ok) {
-          const u = await me.json();
-          $('#user-name').textContent = u.username || (u.email || 'User');
-          $('#user-sub').textContent = u.role ? `Role: ${u.role}` : 'Signed in';
-        }
+    // ----------------- ALU / Activity and safety checks -----------------
+    async function loadActivity() {
+      const r = await apiFetch('/api/user/activity');
+      if (!r.ok) { $('#safety-box').textContent = 'Activity not available.'; return; }
+      const rows = await r.json();
+      // very simple suspicious checks: many failed retrieves or many different IPs in short time
+      let suspicious = false;
+      const ips = new Set();
+      for (const row of rows.slice(0,200)) {
+        if (row.event_type === 'retrieve_not_found') suspicious = true;
+        if (row.extra && row.extra.maybeRoblox === false && row.event_type === 'retrieve') suspicious = true;
+        if (row.ip) ips.add(row.ip);
       }
-    })();
+      $('#safety-box').textContent = suspicious ? 'Suspicious activity detected — check ALU logs.' : 'No suspicious activity detected.';
+    }
+
+    // ----------------- ALU admin logs (open in new tab) -----------------
+    $('#open-alu').addEventListener('click', async () => {
+      // open /api/alu/logs in a raw new tab (admin only)
+      window.open((API_ROOT || '') + '/api/alu/logs', '_blank');
+    });
+
+    // ----------------- OAuth quick buttons -----------------
+    $('#btn-link-discord').addEventListener('click', () => openOAuthPopup('/auth/discord'));
+    $('#btn-link-google').addEventListener('click', () => openOAuthPopup('/auth/google'));
+
+    // ----------------- init on load -----------------
+    async function init() {
+      // wire top auth
+      $('#btn-open-login').addEventListener('click', showLoginModal);
+      $('#btn-open-register').addEventListener('click', showRegisterModal);
+      $('#btn-logout')?.addEventListener('click', doLogout);
+
+      // quick actions
+      $('#quick-obfuscate').addEventListener('click', () => setActiveTab('obfuscator'));
+      $('#quick-store').addEventListener('click', () => setActiveTab('obfuscator'));
+
+      // try to resume session
+      if (getAccess()) {
+        await updateUiSignedIn();
+      } else {
+        updateUiSignedOut();
+      }
+
+      // wire presence login button
+      $('#btn-discord')?.addEventListener('click', () => openOAuthPopup('/auth/discord'));
+      // quick top buttons (created dynamically)
+      document.addEventListener('click', (ev) => {
+        if (ev.target && ev.target.matches && ev.target.matches('#btn-logout-top')) doLogout();
+      });
+
+      // consider polling /me every 15 minutes to refresh presence (optional)
+      setInterval(async () => {
+        if (getAccess()) await updateUiSignedIn();
+      }, 15 * 60 * 1000);
+    }
+
+    init();
+
+    // Helper to set active tab programmatically
+    function setActiveTab(name) { setActiveTab = setActiveTab || (() => {}); setActiveTabIntern(name); }
+    function setActiveTabIntern(name) {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+      Object.keys(panels).forEach(k => {
+        if (!panels[k]) return;
+        panels[k].classList.toggle('hidden', k !== name);
+      });
+      if (name === 'scripts' || name === 'loader') loadScripts();
+      if (name === 'loader') loadActivity();
+    }
+
   </script>
 </body>
-            </html>
+</html>
