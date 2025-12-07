@@ -3,542 +3,445 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fyll NovaHub Front end</title>
-
-  <!-- Tailwind via CDN -->
+  <title>Fyll NovaHub</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-
   <style>
     :root{
-      --bg-900:#07040a;
-      --panel:#0f1220;
-      --accent:#A55EEA;
-      --accent-2:#53E0C9;
-      --muted:#9aa0a6;
+      --bg-900:#07040a; --panel:#0f1220; --accent:#A55EEA; --accent-2:#53E0C9; --muted:#9aa0a6;
     }
-    html,body,#app{height:100%}
-    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;background:radial-gradient(circle at 10% 10%, #071029 0%, #000 60%); color:#e7e7ea}
-    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(165,94,234,0.08); border-radius:14px; padding:1rem; box-shadow:0 12px 30px rgba(3,3,9,0.6),0 0 40px rgba(165,94,234,0.12)}
-    .muted{color:var(--muted)}
-    .accent{color:var(--accent)}
-    .logo-round{width:56px;height:56px;border-radius:12px;overflow:hidden;border:2px solid rgba(165,94,234,0.18)}
-    textarea, input, select { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:inherit; padding:0.6rem; border-radius:8px; }
-    .btn { padding:0.6rem .9rem; border-radius:10px; font-weight:600; cursor:pointer; }
-    .btn-primary{ background:linear-gradient(90deg,var(--accent), #6b2be2); color:white; border: none }
-    .btn-ghost{ background:rgba(255,255,255,0.03); color:var(--muted); border:1px solid rgba(255,255,255,0.03) }
-    #particles{ position:fixed; inset:0; z-index:0; pointer-events:none; }
-    .no-select{ user-select:none }
-    .small-muted{ font-size:0.85rem; color: #b8b8bf }
-    .hidden { display:none }
-    .avatar { width:48px; height:48px; border-radius:10px; object-fit:cover; border:2px solid rgba(255,255,255,0.06) }
-    .presence-dot { width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px; }
-    .presence-online { background: #57F287; box-shadow: 0 0 8px #57F28766; }
-    .presence-offline { background: #747f8d; }
+    body{min-height:100vh;background:radial-gradient(circle at 10% 10%, #071029 0%, #000 60%); color:#e7e7ea; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(165,94,234,0.06); border-radius:12px; padding:1rem;}
+    .btn { padding:.5rem .8rem; border-radius:10px; font-weight:600; cursor:pointer;}
+    .btn-primary{ background:linear-gradient(90deg,var(--accent), #6b2be2); color:white; border:none}
+    .btn-ghost{ background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.03)}
+    .small-muted{ font-size:.9rem; color:#b8b8bf }
+    .hidden{ display:none; }
+    .tab-active{ box-shadow: 0 6px 20px rgba(107,43,226,0.25);}
+    textarea, input, select { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:inherit; padding:.6rem; border-radius:8px; width:100%;}
+    .danger { color: #ff7a7a }
   </style>
 </head>
-<body>
-  <div id="particles"></div>
+<body class="p-6">
 
-  <div id="app" class="relative z-10 p-6 max-w-6xl mx-auto">
+  <div class="max-w-6xl mx-auto">
     <header class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-4">
-        <div class="logo-round card flex items-center justify-center">
-          <img src="profile.png" alt="logo" class="w-full h-full object-cover" onerror="this.style.display='none'">
-        </div>
+        <div class="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center"><img src="logo.png" alt="logo" class="w-10 h-10"></div>
         <div>
-          <div class="text-2xl font-bold">Fyll <span class="accent">NovaHub</span> Front end</div>
+          <div class="text-2xl font-bold">Fyll <span style="color:var(--accent)">NovaHub</span></div>
           <div class="small-muted">Obfuscation · Storage · ALU</div>
         </div>
       </div>
 
-      <div id="top-controls" class="flex items-center gap-4">
-        <div id="music-control" class="flex items-center gap-2">
-          <button id="music-toggle" class="btn btn-ghost"><i class="fas fa-play"></i></button>
-        </div>
-
-        <div id="auth-controls" class="flex items-center gap-2">
-          <button id="btn-show-login" class="btn btn-primary">Sign In</button>
-          <button id="btn-show-register" class="btn btn-ghost">Sign Up</button>
-        </div>
+      <div id="top-controls" class="flex items-center gap-3">
+        <div id="presence-box" class="small-muted">Not signed in</div>
+        <button id="btn-signin" class="btn btn-primary">Sign in with Discord</button>
+        <button id="btn-logout" class="btn btn-ghost hidden">Sign out</button>
       </div>
     </header>
 
-    <main id="main" class="grid grid-cols-12 gap-6">
-      <!-- Left column -->
-      <section class="col-span-12 lg:col-span-8 space-y-6">
+    <div class="grid grid-cols-12 gap-6">
+      <aside class="col-span-12 lg:col-span-3 space-y-4">
         <div class="card">
-          <div class="flex items-center justify-between mb-3">
-            <div>
-              <h2 class="text-xl font-bold">Obfuscator</h2>
-              <div class="small-muted">Paste code or upload a .lua file, then Obfuscate or Store.</div>
-            </div>
-            <div class="flex items-center gap-2">
-              <select id="preset" class="mr-2">
-                <option>Low</option>
-                <option selected>Medium</option>
-                <option>High</option>
-              </select>
-              <label class="btn btn-ghost cursor-pointer">
-                <input id="file-upload" type="file" accept=".lua,.txt" class="hidden">
-                <i class="fas fa-upload"></i> Upload
-              </label>
-              <button id="btn-obfuscate" class="btn btn-primary">Obfuscate</button>
-            </div>
-          </div>
-
-          <textarea id="lua-input" rows="12" placeholder="Paste your Lua code here...">print("NovaHub Secure Script Initialized!")</textarea>
-
-          <div class="flex items-center gap-3 mt-3">
-            <button id="btn-store" class="btn btn-primary">Generate Secure Key (Store)</button>
-            <button id="btn-copy-output" class="btn btn-ghost">Copy Output</button>
-            <div id="status" class="ml-auto small-muted">Ready</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3 class="font-semibold mb-2">Output / Loader</h3>
-          <textarea id="lua-output" rows="4" readonly placeholder="Loader will appear here after store (loadstring(...))."></textarea>
-          <div class="flex items-center gap-2 mt-2">
-            <button id="btn-download" class="btn btn-ghost"><i class="fas fa-download"></i> Download</button>
-            <button id="btn-copy-loader" class="btn btn-primary">Copy Loader</button>
-            <div id="output-msg" class="small-muted ml-auto"></div>
-          </div>
-        </div>
-
-        <div class="card" id="scripts-card">
-          <h3 class="font-semibold mb-2">My Stored Scripts</h3>
-          <div id="scripts-list" class="space-y-2 small-muted">
-            <div class="text-center">Sign in to see your stored scripts.</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Right column -->
-      <aside class="col-span-12 lg:col-span-4 space-y-6">
-        <div class="card">
-          <h4 class="font-semibold">Account</h4>
-          <div id="account-box" class="mt-3">
-            <div class="small-muted">Not signed in</div>
-          </div>
-          <div id="account-actions" class="mt-3 hidden">
-            <div class="flex gap-2 items-center">
-              <button id="btn-logout" class="btn btn-ghost">Sign Out</button>
-              <button id="btn-me" class="btn btn-ghost">Refresh</button>
-            </div>
-          </div>
+          <nav class="space-y-2">
+            <button class="w-full text-left p-2 rounded tab-btn tab-active" data-tab="home">Home</button>
+            <button class="w-full text-left p-2 rounded tab-btn" data-tab="obfuscator">Obfuscator</button>
+            <button class="w-full text-left p-2 rounded tab-btn" data-tab="loader">Script Loader</button>
+            <button class="w-full text-left p-2 rounded tab-btn" data-tab="scripts">My Scripts</button>
+            <button class="w-full text-left p-2 rounded tab-btn" data-tab="info">Info</button>
+          </nav>
         </div>
 
         <div class="card">
           <h4 class="font-semibold">Discord Presence</h4>
-          <div id="discord-presence" class="mt-3 small-muted">
-            <div id="discord-presence-inner" class="flex items-center gap-3">
-              <!-- populated -->
-              <div class="small-muted">Not available</div>
-            </div>
-          </div>
-          <div class="mt-3 small-muted">Click "Sign in with Discord" to populate presence/avatar from your account.</div>
-          <a id="discord-login" href="#" class="inline-block mt-3 bg-[#5865F2] px-3 py-2 rounded text-white">Sign in with Discord</a>
+          <div id="discord-presence" class="mt-3 small-muted">Sign in with Discord to populate presence.</div>
         </div>
 
         <div class="card">
-          <h4 class="font-semibold">Activity (ALU)</h4>
-          <div id="activity-list" class="mt-3 small-muted">Sign in to see activity.</div>
-          <div id="admin-alu" class="mt-3 hidden">
-            <hr class="my-3" />
-            <div class="small-muted">Admin logs:</div>
-            <div id="alu-logs" class="max-h-48 overflow-auto small-muted"></div>
-          </div>
+          <h4 class="font-semibold">Notifications</h4>
+          <div id="alerts" class="mt-3 small-muted">No alerts</div>
         </div>
-
       </aside>
-    </main>
-  </div>
 
-  <!-- Login/Register Modal -->
-  <div id="modal-root" class="fixed inset-0 z-50 hidden items-center justify-center">
-    <div class="absolute inset-0 bg-black/60"></div>
-    <div class="relative max-w-md w-full p-6 card z-50">
-      <div class="flex items-center justify-between mb-4">
-        <h3 id="modal-title" class="text-lg font-bold">Sign In</h3>
-        <button id="modal-close" class="btn btn-ghost">Close</button>
-      </div>
+      <main class="col-span-12 lg:col-span-9 space-y-6">
+        <!-- HOME -->
+        <section id="tab-home" class="tab-panel card">
+          <h2 class="text-xl font-bold">Dashboard</h2>
+          <p class="small-muted mt-2">Welcome to NovaHub. Use the left menu to switch tools.</p>
 
-      <div id="modal-body"></div>
+          <div class="grid grid-cols-2 gap-4 mt-4">
+            <div class="p-4 bg-white/3 rounded">
+              <div class="text-sm small-muted">Stored scripts</div>
+              <div id="stat-scripts" class="text-2xl font-bold mt-2">—</div>
+            </div>
+            <div class="p-4 bg-white/3 rounded">
+              <div class="text-sm small-muted">Recent accesses (ALU)</div>
+              <div id="stat-alu" class="text-2xl font-bold mt-2">—</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- OBFUSCATOR -->
+        <section id="tab-obfuscator" class="tab-panel card hidden">
+          <h2 class="text-xl font-bold">Obfuscator</h2>
+          <div class="small-muted">Paste code or upload a .lua file, then Obfuscate or Store as loader.</div>
+
+          <div class="mt-3">
+            <div class="flex gap-2 items-center">
+              <select id="preset" class="w-36">
+                <option>Low</option><option selected>Medium</option><option>High</option>
+              </select>
+              <label class="btn btn-ghost cursor-pointer">
+                <input id="file-upload" type="file" accept=".lua,.txt" class="hidden"> Upload
+              </label>
+              <button id="btn-obfuscate" class="btn btn-primary">Obfuscate</button>
+              <button id="btn-store" class="btn btn-primary">Generate & Store (Loader)</button>
+              <div id="obf-status" class="ml-auto small-muted">Ready</div>
+            </div>
+
+            <textarea id="lua-input" rows="12" class="mt-3" placeholder="Paste Lua code...">print("NovaHub Secure Script Initialized!")</textarea>
+            <div class="mt-3 flex gap-2">
+              <button id="btn-copy-output" class="btn btn-ghost">Copy Output</button>
+              <div id="obf-output-small" class="ml-auto small-muted"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- LOADER -->
+        <section id="tab-loader" class="tab-panel card hidden">
+          <h2 class="text-xl font-bold">Script Loader</h2>
+          <p class="small-muted">Your stored loader scripts. Click a script to edit, test, or delete.</p>
+
+          <div class="mt-4">
+            <div id="loader-list" class="space-y-3">
+              <div class="small-muted">Loading your scripts...</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SCRIPTS -->
+        <section id="tab-scripts" class="tab-panel card hidden">
+          <h2 class="text-xl font-bold">My Scripts</h2>
+          <p class="small-muted mt-2">View metadata and click to edit loader code or delete.</p>
+          <div id="scripts-list" class="mt-3 space-y-3 small-muted">Loading...</div>
+        </section>
+
+        <!-- INFO -->
+        <section id="tab-info" class="tab-panel card hidden">
+          <h2 class="text-xl font-bold">Info</h2>
+          <p class="small-muted mt-2">Guide and suspicious activity notifications.</p>
+
+          <div class="mt-4">
+            <div class="small-muted">If loader retrieval attempts happen outside Roblox, they'll be flagged as suspicious in notifications & activity tab.</div>
+          </div>
+        </section>
+
+      </main>
     </div>
   </div>
 
-  <audio id="bg-music" loop src="music.mp3"></audio>
-
-  <script>
-  /*********************************************************
-   * Fyll NovaHub Front end - Single-file SPA
-   *********************************************************/
-  const API_ROOT = 'https://novahub-zd14.onrender.com'; // change if needed
-
-  // helpers
-  const $ = (sel) => document.querySelector(sel);
-  const $all = (sel) => Array.from(document.querySelectorAll(sel));
-  const setStatus = (msg, err) => {
-    const s = $('#status'); if (s) { s.textContent = msg; s.style.color = err ? '#ff7a7a' : '#9ee29e'; }
-  };
-
-  // particles
-  (function particles(){
-    const root = document.getElementById('particles');
-    for(let i=0;i<12;i++){
-      const d = document.createElement('div');
-      const size = 40 + Math.random()*160;
-      d.style.width=d.style.height=size+'px';
-      d.style.position='absolute';
-      d.style.left = Math.random()*100+'%';
-      d.style.top = Math.random()*100+'%';
-      d.style.background = Math.random()>0.5 ? 'radial-gradient(circle,#6b2be2,transparent)' : 'radial-gradient(circle,#53E0C9,transparent)';
-      d.style.opacity = 0.02 + Math.random()*0.06;
-      d.style.filter='blur(40px)'; d.style.pointerEvents='none';
-      root.appendChild(d);
-      const dur = 12000 + Math.random()*25000;
-      d.animate([{transform:'translateY(0px)'},{transform:`translateY(${40+Math.random()*160}px)`},{transform:'translateY(0px)'}],{duration:dur,iterations:Infinity,easing:'ease-in-out'});
-    }
-  })();
-
-  // music
-  const music = document.getElementById('bg-music');
-  const musicToggle = document.getElementById('music-toggle');
-  musicToggle.addEventListener('click', () => {
-    if (music.paused) { music.play().catch(()=>{}); musicToggle.innerHTML='<i class="fas fa-pause"></i>'; } 
-    else { music.pause(); musicToggle.innerHTML='<i class="fas fa-play"></i>'; }
-  });
-
-  // modal
-  const modalRoot = document.getElementById('modal-root');
-  const modalBody = document.getElementById('modal-body');
-  const modalTitle = document.getElementById('modal-title');
-  $('#btn-show-login').addEventListener('click', ()=>openModal('login'));
-  $('#btn-show-register').addEventListener('click', ()=>openModal('register'));
-  $('#modal-close').addEventListener('click', closeModal);
-  function openModal(mode='login'){ modalRoot.classList.remove('hidden'); modalRoot.style.display='flex'; if (mode==='login') showLoginForm(); else showRegisterForm(); }
-  function closeModal(){ modalRoot.classList.add('hidden'); modalRoot.style.display='none'; }
-
-  // tokens
-  function storeTokens(access, refresh) { localStorage.setItem('fy_access', access); localStorage.setItem('fy_refresh', refresh); }
-  function clearTokens() { localStorage.removeItem('fy_access'); localStorage.removeItem('fy_refresh'); }
-  function getAccess() { return localStorage.getItem('fy_access'); }
-  function getRefresh() { return localStorage.getItem('fy_refresh'); }
-
-  async function apiFetch(path, opts = {}) {
-    opts.headers = opts.headers || {};
-    if (getAccess()) opts.headers['Authorization'] = 'Bearer ' + getAccess();
-    const res = await fetch((API_ROOT || '') + path, opts);
-    if (res.status === 401) {
-      const refreshed = await refreshTokens();
-      if (refreshed) {
-        opts.headers['Authorization'] = 'Bearer ' + getAccess();
-        return fetch((API_ROOT || '') + path, opts);
-      }
-    }
-    return res;
-  }
-
-  async function refreshTokens(){
-    const refresh = getRefresh();
-    if (!refresh) return false;
-    try {
-      const res = await fetch((API_ROOT || '') + '/auth/refresh', {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ refreshToken: refresh })
-      });
-      if (!res.ok) { clearTokens(); updateUiForSignedOut(); return false; }
-      const j = await res.json();
-      storeTokens(j.accessToken, j.refreshToken);
-      return true;
-    } catch(e){ console.error('refresh failed', e); clearTokens(); updateUiForSignedOut(); return false; }
-  }
-
-  // login/register forms
-  function showLoginForm(){
-    modalTitle.textContent = 'Sign In';
-    modalBody.innerHTML = `
-      <div class="space-y-3">
-        <input id="login-email" placeholder="Email" />
-        <input id="login-pass" type="password" placeholder="Password" />
-        <div class="flex gap-2">
-          <button id="login-do" class="btn btn-primary">Sign In</button>
-          <button id="login-discord" class="btn btn-ghost">Discord</button>
-        </div>
-        <div id="login-msg" class="small-muted"></div>
+  <!-- Edit modal -->
+  <div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center">
+    <div class="absolute inset-0 bg-black/50"></div>
+    <div class="relative w-11/12 md:w-2/3 lg:w-1/2 p-4 card z-60">
+      <div class="flex items-center justify-between mb-3">
+        <div class="font-bold">Edit Script Loader</div>
+        <button id="edit-close" class="btn btn-ghost">Close</button>
       </div>
-    `;
-    document.getElementById('login-do').addEventListener('click', doLogin);
-    document.getElementById('login-discord').addEventListener('click', ()=> { window.open((API_ROOT||'') + '/auth/discord', '_blank', 'width=600,height=800'); });
-  }
-
-  function showRegisterForm(){
-    modalTitle.textContent = 'Create Account';
-    modalBody.innerHTML = `
-      <div class="space-y-3">
-        <input id="reg-email" placeholder="Email" />
-        <input id="reg-username" placeholder="Username (optional)" />
-        <input id="reg-pass" type="password" placeholder="Password" />
-        <div class="flex gap-2">
-          <button id="reg-do" class="btn btn-primary">Create</button>
-          <button id="reg-discord" class="btn btn-ghost">Discord</button>
+      <div>
+        <div class="small-muted mb-2">Script key: <span id="edit-key"></span></div>
+        <textarea id="edit-script" rows="12"></textarea>
+        <div class="mt-3 flex gap-2">
+          <button id="edit-save" class="btn btn-primary">Save (overwrite)</button>
+          <button id="edit-delete" class="btn btn-ghost">Delete</button>
+          <button id="edit-copy" class="btn btn-ghost">Copy Loader</button>
+          <div id="edit-msg" class="ml-auto small-muted"></div>
         </div>
-        <div id="reg-msg" class="small-muted"></div>
       </div>
-    `;
-    document.getElementById('reg-do').addEventListener('click', doRegister);
-    document.getElementById('reg-discord').addEventListener('click', ()=> { window.open((API_ROOT||'') + '/auth/discord', '_blank', 'width=600,height=800'); });
-  }
+    </div>
+  </div>
 
-  // auth actions
-  async function doRegister(){
-    const email = $('#reg-email').value.trim();
-    const username = $('#reg-username').value.trim();
-    const password = $('#reg-pass').value;
-    if (!email || !password) { $('#reg-msg').textContent = 'Email and password required'; return; }
-    $('#reg-msg').textContent = 'Creating...';
-    try {
-      const res = await fetch((API_ROOT||'') + '/auth/register', {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password, username })
-      });
-      const j = await res.json();
-      if (!res.ok) { $('#reg-msg').textContent = j.error || 'Failed'; return; }
-      storeTokens(j.accessToken, j.refreshToken);
-      closeModal();
-      await updateUiAfterLogin();
-    } catch (e) {
-      $('#reg-msg').textContent = 'Network error';
-      console.error(e);
+<script>
+const API_ROOT = 'https://novahub-zd14.onrender.com'; // leave blank if frontend served from same origin
+
+// utils
+const $ = (sel)=>document.querySelector(sel);
+const $all = (sel)=>Array.from(document.querySelectorAll(sel));
+function setSmall(id,txt){ const el=$(id); if(el) el.textContent = txt; }
+
+// auth tokens
+function storeTokens(access, refresh){
+  localStorage.setItem('fy_access', access);
+  localStorage.setItem('fy_refresh', refresh);
+}
+function clearTokens(){ localStorage.removeItem('fy_access'); localStorage.removeItem('fy_refresh'); }
+function getAccess(){ return localStorage.getItem('fy_access'); }
+
+async function apiFetch(path, opts={}){
+  opts.headers = opts.headers || {};
+  if (getAccess()) opts.headers['Authorization'] = 'Bearer ' + getAccess();
+  const res = await fetch((API_ROOT||'') + path, opts);
+  if (res.status === 401) {
+    // try refresh
+    const refreshed = await refreshTokens();
+    if (refreshed) {
+      opts.headers['Authorization'] = 'Bearer ' + getAccess();
+      return fetch((API_ROOT||'') + path, opts);
     }
   }
-
-  async function doLogin(){
-    const email = $('#login-email').value.trim();
-    const password = $('#login-pass').value;
-    if (!email || !password) { $('#login-msg').textContent = 'Email and password required'; return; }
-    $('#login-msg').textContent = 'Signing in...';
-    try {
-      const res = await fetch((API_ROOT||'') + '/auth/login', {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password })
-      });
-      const j = await res.json();
-      if (!res.ok) { $('#login-msg').textContent = j.error || 'Failed'; return; }
-      storeTokens(j.accessToken, j.refreshToken);
-      closeModal();
-      await updateUiAfterLogin();
-    } catch (e) {
-      $('#login-msg').textContent = 'Network error';
-      console.error(e);
-    }
-  }
-
-  async function doLogout(){
-    const refresh = getRefresh();
-    try {
-      await fetch((API_ROOT||'') + '/auth/logout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken: refresh }) });
-    } catch(e){}
-    clearTokens();
-    updateUiForSignedOut();
-  }
-
-  // UI updates
-  async function updateUiAfterLogin(){
-    const user = await getMe();
-    if (!user) { updateUiForSignedOut(); return; }
-    $('#auth-controls').innerHTML = `<div class="small-muted">Hi, ${user.username || user.email}</div><button id="top-logout" class="btn btn-ghost">Sign Out</button>`;
-    $('#top-logout').addEventListener('click', doLogout);
-    $('#account-box').innerHTML = `<div class="flex items-center gap-3"><img id="account-avatar" class="avatar" src="" onerror="this.style.display='none'"><div><div class="font-semibold">${user.username || user.email}</div><div class="small-muted">Role: ${user.role || 'user'}</div></div></div>`;
-    document.getElementById('account-actions').classList.remove('hidden');
-
-    // set avatar if discord avatar exists
-    if (user.discord_id && user.discord_avatar) {
-      const ext = user.discord_avatar.startsWith('a_') ? 'gif' : 'png';
-      const url = `https://cdn.discordapp.com/avatars/${user.discord_id}/${user.discord_avatar}.${ext}?size=128`;
-      const img = document.getElementById('account-avatar');
-      if (img) img.src = url;
-    }
-
-    await loadScripts();
-    await loadActivity();
-
-    if (user.role === 'admin') {
-      document.getElementById('admin-alu').classList.remove('hidden');
-      await loadAluLogs();
-    } else document.getElementById('admin-alu').classList.add('hidden');
-
-    // update discord presence UI if we have discord id
-    if (user.discord_id) {
-      fetch((API_ROOT || '') + '/api/discord-status/' + user.discord_id)
-        .then(r => r.json())
-        .then(d => {
-          const root = document.getElementById('discord-presence-inner');
-          root.innerHTML = '';
-          const img = document.createElement('img'); img.className='avatar';
-          if (d.avatar) {
-            const ext = d.avatar.startsWith('a_') ? 'gif' : 'png';
-            img.src = `https://cdn.discordapp.com/avatars/${user.discord_id}/${d.avatar}.${ext}?size=128`;
-          } else img.src = 'profile.png';
-          const right = document.createElement('div');
-          const pres = document.createElement('div');
-          pres.innerHTML = `<span class="presence-dot presence-offline"></span><strong>${d.username || user.username || user.email}</strong>`;
-          const note = document.createElement('div'); note.className='small-muted'; note.textContent = `Presence: ${d.presence || 'unknown'}`;
-          right.appendChild(pres); right.appendChild(note);
-          root.appendChild(img); root.appendChild(right);
-        }).catch(()=>{});
-    }
-  }
-
-  function updateUiForSignedOut(){
-    $('#auth-controls').innerHTML = `<button id="btn-show-login" class="btn btn-primary">Sign In</button><button id="btn-show-register" class="btn btn-ghost">Sign Up</button>`;
-    $('#btn-show-login').addEventListener('click', ()=>openModal('login'));
-    $('#btn-show-register').addEventListener('click', ()=>openModal('register'));
-    $('#account-box').innerHTML = `<div class="small-muted">Not signed in</div>`;
-    document.getElementById('account-actions').classList.add('hidden');
-    document.getElementById('scripts-list').innerHTML = '<div class="small-muted">Sign in to see your stored scripts.</div>';
-    document.getElementById('activity-list').textContent = 'Sign in to see activity.';
-    document.getElementById('alu-logs').innerHTML = '';
-  }
-
-  async function getMe(){
-    const access = getAccess(); if(!access) return null;
-    try {
-      const res = await apiFetch('/auth/me'); if(!res.ok) { clearTokens(); updateUiForSignedOut(); return null; }
-      return await res.json();
-    } catch(e){ console.error(e); return null; }
-  }
-
-  // file upload (client -> server)
-  $('#file-upload').addEventListener('change', (e)=>{
-    const f = e.target.files[0]; if(!f) return;
-    const r = new FileReader(); r.onload = ()=> $('#lua-input').value = r.result; r.readAsText(f);
-  });
-
-  // obfuscate
-  $('#btn-obfuscate').addEventListener('click', async ()=>{
-    const code = $('#lua-input').value;
-    if (!code.trim()) { setStatus('Paste Lua code first', true); return; }
-    setStatus('Obfuscating...');
-    const res = await apiFetch('/obfuscate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, preset: $('#preset').value }) });
-    if (!res.ok) {
-      const j = await res.json();
-      setStatus('Failed: '+ (j.error||'server error'), true);
-      return;
-    }
+  return res;
+}
+async function refreshTokens(){
+  const refresh = localStorage.getItem('fy_refresh');
+  if (!refresh) return false;
+  try {
+    const res = await fetch((API_ROOT||'') + '/auth/refresh', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken: refresh })
+    });
+    if (!res.ok) { clearTokens(); updateUiSignedOut(); return false;}
     const j = await res.json();
-    $('#lua-output').value = j.obfuscatedCode || j.obfuscated || '';
-    setStatus('Obfuscation complete');
-  });
+    storeTokens(j.accessToken, j.refreshToken);
+    return true;
+  } catch(e){ clearTokens(); updateUiSignedOut(); return false; }
+}
 
-  // store
-  $('#btn-store').addEventListener('click', async ()=>{
-    const script = $('#lua-input').value;
-    if (!script.trim()) { setStatus('Paste Lua code first', true); return; }
-    setStatus('Storing script...');
-    const res = await apiFetch('/obfuscate-and-store', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ script, preset: $('#preset').value }) });
-    const j = await res.json();
-    if (!res.ok) { setStatus('Store failed: '+(j.error||'server error'), true); return; }
-    const key = j.key;
-    const url = (API_ROOT||'') + '/retrieve/' + key;
-    const loader = `loadstring(game:HttpGet("${url}"))()`;
-    $('#lua-output').value = loader;
-    setStatus('Stored ✓ Key: ' + key);
-    await loadScripts();
+// UI: tabs
+$all('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $all('.tab-btn').forEach(b=>b.classList.remove('tab-active'));
+    btn.classList.add('tab-active');
+    const tab = btn.dataset.tab;
+    $all('.tab-panel').forEach(p=>p.classList.add('hidden'));
+    document.getElementById('tab-'+tab).classList.remove('hidden');
+    if (tab === 'scripts' || tab === 'loader') loadScripts();
+    if (tab === 'home') loadStats();
   });
+});
 
-  // copy / download
-  $('#btn-copy-loader').addEventListener('click', ()=> {
-    const out = $('#lua-output').value;
-    if (!out) { $('#output-msg').textContent = 'Nothing to copy'; return; }
-    navigator.clipboard.writeText(out).then(()=> { $('#output-msg').textContent='Copied'; setTimeout(()=>$('#output-msg').textContent='',2000); });
-  });
-  $('#btn-download').addEventListener('click', ()=> {
-    const out = $('#lua-output').value;
-    if (!out) return;
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out],{type:'text/plain'})); a.download = `novahub_loader_${Math.random().toString(36).slice(2,8)}.lua`; document.body.appendChild(a); a.click(); a.remove();
-  });
-  $('#btn-copy-output').addEventListener('click', ()=> {
-    const out = $('#lua-output').value||$('#lua-input').value;
-    if (!out) return;
-    navigator.clipboard.writeText(out).then(()=> setStatus('Copied'));
-  });
+// auth flow: Discord popup
+$('#btn-signin').addEventListener('click', ()=>{
+  const w = window.open((API_ROOT||'') + '/auth/discord', '_blank', 'width=600,height=800');
+  // popup returns tokens via postMessage
+});
 
-  // load scripts
-  async function loadScripts(){
-    const res = await apiFetch('/api/scripts');
-    if (!res.ok) { $('#scripts-list').innerHTML = '<div class="small-muted">No scripts or not signed in.</div>'; return; }
-    const arr = await res.json();
-    if (!arr.length) { $('#scripts-list').innerHTML = '<div class="small-muted">No stored scripts yet.</div>'; return; }
-    const container = $('#scripts-list'); container.innerHTML = '';
-    for (const s of arr) {
-      const el = document.createElement('div'); el.className='flex items-center justify-between p-2 bg-black/10 rounded';
-      const left = document.createElement('div'); left.innerHTML = `<div class="font-semibold">${s.title || s.key}</div><div class="small-muted">Uses: ${s.uses || 0} · Created: ${new Date(s.created_at).toLocaleString()}</div>`;
-      const right = document.createElement('div'); right.className='flex gap-2';
-      const loaderBtn = document.createElement('button'); loaderBtn.className='btn btn-ghost'; loaderBtn.textContent='Get Loader';
-      loaderBtn.addEventListener('click', ()=> {
-        const url = (API_ROOT||'') + '/retrieve/' + s.key;
-        $('#lua-output').value = `loadstring(game:HttpGet("${url}"))()`;
-        setStatus('Loader ready');
-      });
-      const delBtn = document.createElement('button'); delBtn.className='btn btn-ghost'; delBtn.textContent='Delete';
-      delBtn.addEventListener('click', async ()=>{
-        if(!confirm('Delete script?')) return;
-        const d = await apiFetch('/api/scripts/' + s.key, { method:'DELETE' });
-        if (!d.ok) { alert('Delete failed'); return; }
-        await loadScripts();
-      });
-      right.appendChild(loaderBtn); right.appendChild(delBtn);
-      el.appendChild(left); el.appendChild(right); container.appendChild(el);
+// receive OAuth tokens from popup
+window.addEventListener('message', (ev)=>{
+  try {
+    const data = ev.data;
+    if (data && data.accessToken) {
+      storeTokens(data.accessToken, data.refreshToken);
+      updateUiSignedIn();
+      setSmall('#obf-status', 'Signed in via Discord');
+      fetchPresence();
     }
+  } catch(e){}
+});
+
+// logout
+$('#btn-logout').addEventListener('click', async ()=>{
+  const refresh = localStorage.getItem('fy_refresh');
+  try { await fetch((API_ROOT||'') + '/auth/logout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refreshToken: refresh }) }); } catch (e){}
+  clearTokens();
+  updateUiSignedOut();
+});
+
+// update UI when signed in
+async function updateUiSignedIn(){
+  const me = await getMe();
+  if (!me) return updateUiSignedOut();
+  $('#btn-signin').classList.add('hidden');
+  $('#btn-logout').classList.remove('hidden');
+  $('#presence-box').textContent = me.username || me.email || 'Account';
+  $('#discord-presence').innerHTML = `<div class="flex items-center gap-2"><img src="${discordAvatarUrl(me.discord_id, me.discord_avatar)}" class="w-10 h-10 rounded" onerror="this.style.display='none'"> <div><div class="font-semibold">${me.username||me.email}</div><div class="small-muted">Role: ${me.role||'user'}</div></div></div>`;
+  loadScripts();
+  loadActivity();
+  loadStats();
+}
+function updateUiSignedOut(){
+  $('#btn-signin').classList.remove('hidden');
+  $('#btn-logout').classList.add('hidden');
+  $('#presence-box').textContent = 'Not signed in';
+  $('#discord-presence').textContent = 'Sign in with Discord to populate presence.';
+  $('#scripts-list').innerHTML = '<div class="small-muted">Sign in to see your stored scripts.</div>';
+  $('#loader-list').innerHTML = '<div class="small-muted">Sign in to manage loaders.</div>';
+  setSmall('#stat-scripts','—'); setSmall('#stat-alu','—');
+}
+
+// helper: discord avatar url
+function discordAvatarUrl(id, avatar){
+  if (!id || !avatar) return '';
+  return `https://cdn.discordapp.com/avatars/${id}/${avatar}.png`;
+}
+
+// get current user
+async function getMe(){
+  const access = getAccess(); if (!access) return null;
+  try {
+    const res = await apiFetch('/auth/me');
+    if (!res.ok) { clearTokens(); updateUiSignedOut(); return null; }
+    return await res.json();
+  } catch (e) { return null; }
+}
+
+// Obfuscator handlers
+$('#file-upload').addEventListener('change', (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader(); r.onload = ()=> $('#lua-input').value = r.result; r.readAsText(f);
+});
+$('#btn-obfuscate').addEventListener('click', async ()=>{
+  const code = $('#lua-input').value;
+  if (!code.trim()) return setSmall('#obf-status','Paste Lua code first');
+  setSmall('#obf-status','Obfuscating...');
+  const res = await apiFetch('/obfuscate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, preset: $('#preset').value }) });
+  const j = await res.json();
+  if (!res.ok) return setSmall('#obf-status', 'Failed: ' + (j.error||'server error'));
+  // show obfuscated in output
+  $('#obf-output-small').textContent = (j.obfuscatedCode||'') .slice(0,200) + ( (j.obfuscatedCode && j.obfuscatedCode.length>200) ? '...' : '' );
+  setSmall('#obf-status','Obfuscation complete');
+});
+$('#btn-store').addEventListener('click', async ()=>{
+  const script = $('#lua-input').value;
+  if (!script.trim()) return setSmall('#obf-status','Paste Lua code first');
+  setSmall('#obf-status','Storing script...');
+  const res = await apiFetch('/obfuscate-and-store', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ script, preset: $('#preset').value }) });
+  const j = await res.json();
+  if (!res.ok) return setSmall('#obf-status', 'Store failed: ' + (j.error||'server error'));
+  setSmall('#obf-status','Stored ✓ Key: ' + j.key);
+  loadScripts();
+});
+
+// load scripts (for both scripts tab and loader tab)
+async function loadScripts(){
+  const res = await apiFetch('/api/scripts');
+  if (!res.ok) { $('#scripts-list').innerHTML = '<div class="small-muted">No scripts or not signed in.</div>'; $('#loader-list').innerHTML = '<div class="small-muted">No scripts or not signed in.</div>'; return; }
+  const arr = await res.json();
+  $('#scripts-list').innerHTML = '';
+  $('#loader-list').innerHTML = '';
+  if (!arr.length) {
+    $('#scripts-list').innerHTML = '<div class="small-muted">No stored scripts yet.</div>';
+    $('#loader-list').innerHTML = '<div class="small-muted">No stored scripts yet.</div>';
+    setSmall('#stat-scripts','0');
+    return;
   }
+  setSmall('#stat-scripts', arr.length.toString());
+  for (const s of arr) {
+    // scripts list item
+    const el = document.createElement('div'); el.className='p-3 bg-white/5 rounded flex items-center justify-between';
+    el.innerHTML = `<div><div class="font-semibold">${s.title || s.key}</div><div class="small-muted">Uses: ${s.uses || 0} · Created: ${new Date(s.created_at).toLocaleString()}</div></div>`;
+    const right = document.createElement('div'); right.className='flex gap-2';
+    const editBtn = document.createElement('button'); editBtn.className='btn btn-ghost'; editBtn.textContent='Edit';
+    editBtn.addEventListener('click', ()=> openEdit(s.key));
+    const loaderBtn = document.createElement('button'); loaderBtn.className='btn btn-primary'; loaderBtn.textContent='Get Loader';
+    loaderBtn.addEventListener('click', ()=> {
+      const url = (API_ROOT||'') + '/retrieve/' + s.key;
+      $('#obf-output-small').textContent = `loadstring(game:HttpGet("${url}"))()`;
+      setSmall('#obf-status','Loader ready');
+    });
+    const delBtn = document.createElement('button'); delBtn.className='btn btn-ghost'; delBtn.textContent='Delete';
+    delBtn.addEventListener('click', async ()=> {
+      if (!confirm('Delete script?')) return;
+      const dres = await apiFetch('/api/scripts/' + s.key, { method:'DELETE' });
+      if (!dres.ok) { alert('Delete failed'); return; }
+      loadScripts();
+    });
+    right.appendChild(loaderBtn); right.appendChild(editBtn); right.appendChild(delBtn);
+    el.appendChild(right);
+    $('#scripts-list').appendChild(el);
 
-  // activity / alu
-  async function loadActivity(){
-    const res = await apiFetch('/api/user/activity');
-    if (!res.ok) { $('#activity-list').textContent='No activity or not signed in.'; return; }
-    const rows = await res.json();
-    const el = $('#activity-list'); el.innerHTML = '';
-    if (!rows.length) { el.textContent = 'No recent activity.'; return; }
-    for (const r of rows.slice(0,30)) {
-      const d = document.createElement('div'); d.className='py-1 border-b border-white/3 small-muted';
-      d.textContent = `${new Date(r.created_at).toLocaleString()} · ${r.event_type} · key=${r.script_key || '-'} · ip=${r.ip || '-'} · ua=${(r.user_agent||'').slice(0,60)}`;
-      el.appendChild(d);
-    }
+    // loader list for loader tab
+    const le = document.createElement('div'); le.className='p-3 bg-white/5 rounded flex items-center justify-between';
+    le.innerHTML = `<div><div class="font-semibold">${s.title || s.key}</div><div class="small-muted">Uses: ${s.uses || 0}</div></div>`;
+    const lright = document.createElement('div'); lright.className='flex gap-2';
+    const ledit = document.createElement('button'); ledit.className='btn btn-ghost'; ledit.textContent='Edit'; ledit.addEventListener('click', ()=> openEdit(s.key));
+    const lcopy = document.createElement('button'); lcopy.className='btn btn-primary'; lcopy.textContent='Copy Loader';
+    lcopy.addEventListener('click', ()=> { navigator.clipboard.writeText(`loadstring(game:HttpGet("${(API_ROOT||'') + '/retrieve/' + s.key}"))()`); setSmall('#obf-status','Copied loader'); });
+    lright.appendChild(lcopy); lright.appendChild(ledit);
+    le.appendChild(lright);
+    $('#loader-list').appendChild(le);
   }
+}
 
-  async function loadAluLogs(){
-    const res = await apiFetch('/api/alu/logs');
-    if (!res.ok) { $('#alu-logs').textContent = 'No logs / not admin'; return; }
-    const rows = await res.json();
-    const el = $('#alu-logs'); el.innerHTML = '';
-    for (const r of rows.slice(0,200)) {
-      const d = document.createElement('div'); d.className='py-1 border-b border-white/3 small-muted';
-      d.textContent = `${new Date(r.created_at).toLocaleString()} · ${r.event_type} · key=${r.script_key || '-'} · ip=${r.ip || '-'} · extra=${JSON.stringify(r.extra||{})}`;
-      el.appendChild(d);
-    }
+// open edit modal: fetch full script, place in textarea
+async function openEdit(key){
+  const res = await apiFetch('/api/scripts/' + key);
+  if (!res.ok) { alert('Failed to load script'); return; }
+  const j = await res.json();
+  $('#edit-key').textContent = j.key;
+  $('#edit-script').value = j.script || '';
+  $('#edit-modal').classList.remove('hidden');
+}
+$('#edit-close').addEventListener('click', ()=> $('#edit-modal').classList.add('hidden'));
+$('#edit-copy').addEventListener('click', ()=> {
+  navigator.clipboard.writeText($('#edit-script').value || '').then(()=> $('#edit-msg').textContent = 'Copied');
+});
+$('#edit-delete').addEventListener('click', async ()=> {
+  if (!confirm('Delete script?')) return;
+  const key = $('#edit-key').textContent;
+  const res = await apiFetch('/api/scripts/' + key, { method:'DELETE' });
+  if (!res.ok) { $('#edit-msg').textContent = 'Delete failed'; return; }
+  $('#edit-msg').textContent = 'Deleted';
+  $('#edit-modal').classList.add('hidden');
+  loadScripts();
+});
+$('#edit-save').addEventListener('click', async ()=>{
+  // For safety we implement save by re-uploading via obfuscate-and-store replacement pattern:
+  // Simpler: no direct update endpoint in server (to keep DB logic simple). We'll delete and re-insert.
+  const key = $('#edit-key').textContent;
+  const scriptText = $('#edit-script').value || '';
+  if (!scriptText) return $('#edit-msg').textContent = 'Script empty';
+  // Delete existing
+  const del = await apiFetch('/api/scripts/' + key, { method:'DELETE' });
+  if (!del.ok) { $('#edit-msg').textContent = 'Failed to delete old entry'; return; }
+  // Store new script (obfuscate-and-store) with same title blank
+  const store = await apiFetch('/obfuscate-and-store', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ script: scriptText, preset: 'Medium' }) });
+  if (!store.ok) { const j = await store.json(); $('#edit-msg').textContent = 'Store failed: ' + (j.error||'server error'); return; }
+  const j = await store.json();
+  $('#edit-msg').textContent = 'Saved new key: ' + j.key;
+  $('#edit-modal').classList.add('hidden');
+  loadScripts();
+});
+
+// activity / suspicious detection
+async function loadActivity(){
+  const res = await apiFetch('/api/user/activity');
+  if (!res.ok) { setSmall('#alerts','No activity'); return; }
+  const rows = await res.json();
+  const suspicious = rows.filter(r => r.event_type === 'retrieve_blocked_non_roblox' || r.event_type === 'retrieve_not_found');
+  if (suspicious.length) {
+    $('#alerts').innerHTML = `<div class="danger font-semibold">Suspicious activity detected (${suspicious.length})</div><div class="small-muted">${suspicious.slice(0,5).map(s=>`${new Date(s.created_at).toLocaleString()} · ${s.event_type} · key=${s.script_key||'-'}`).join('<br>')}</div>`;
+  } else {
+    $('#alerts').innerHTML = '<div class="small-muted">No suspicious activity</div>';
   }
+  setSmall('#stat-alu', rows.length.toString());
+}
 
-  // top controls wiring
-  $('#btn-me').addEventListener('click', async ()=> { await updateUiAfterLogin(); setStatus('Refreshed'); });
-  $('#discord-login').addEventListener('click', (e)=>{ e.preventDefault(); window.open((API_ROOT||'') + '/auth/discord', '_blank', 'width=600,height=800'); });
+// fetch presence (display avatar)
+async function fetchPresence(){
+  const me = await getMe();
+  if (!me) return;
+  if (me.discord_id) {
+    $('#discord-presence').innerHTML = `<div class="flex items-center gap-2"><img src="https://cdn.discordapp.com/avatars/${me.discord_id}/${me.discord_avatar}.png" class="w-12 h-12 rounded" onerror="this.style.display='none'"> <div><div class="font-semibold">${me.username || me.email}</div><div class="small-muted">Discord ID: ${me.discord_id}</div></div></div>`;
+  }
+}
 
-  // discord oauth popup listener
-  window.addEventListener('message', (ev) => {
-    try {
-      const data = ev.data;
-      if (data && data.accessToken) {
-        storeTokens(data.accessToken, data.refreshToken);
-        updateUiAfterLogin();
-        setStatus('Signed in via Discord');
-      }
-    } catch(e){}
-  }, false);
+// load dashboard stats
+async function loadStats(){
+  const scriptsRes = await apiFetch('/api/scripts');
+  if (!scriptsRes.ok) { setSmall('#stat-scripts','—'); return; }
+  const arr = await scriptsRes.json();
+  setSmall('#stat-scripts', String(arr.length));
+  const actRes = await apiFetch('/api/user/activity');
+  if (actRes.ok) { const r = await actRes.json(); setSmall('#stat-alu', String(r.length)); }
+}
 
-  // init
-  (function init(){
-    if (getAccess()) updateUiAfterLogin();
-    else updateUiForSignedOut();
-  })();
+// on load
+(async function init(){
+  if (getAccess()) {
+    await updateUiSignedIn();
+  } else updateUiSignedOut();
+})();
+</script>
 
-  </script>
 </body>
   </html>
