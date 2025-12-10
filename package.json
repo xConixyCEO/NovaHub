@@ -1,9 +1,8 @@
 {
   "name": "novahub-complete-service",
-  "version": "3.0.0",
-  "description": "NovaHub — Full Backend API (Google OAuth, Discord OAuth, Email Verification, Obfuscator, File Uploads, DB, Sessions, Discord Bot)",
+  "version": "3.0.1",
+  "description": "NovaHub — Full Backend API + Discord Bot",
   "main": "server.js",
-
   "scripts": {
     "start": "node server.js",
     "bot": "node bot.js",
@@ -12,20 +11,19 @@
     "dev:bot": "nodemon bot.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:bot\""
   },
-
   "dependencies": {
     "axios": "^1.6.8",
     "bcrypt": "^5.1.1",
     "concurrently": "^8.2.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
     "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^6.11.2",
     "express-session": "^1.17.3",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.2.1",
     "nodemailer": "^6.9.8",
     "node-fetch": "^3.3.2",
     "passport": "^0.7.0",
@@ -34,12 +32,10 @@
     "pg": "^8.12.0",
     "uuid": "^9.0.1"
   },
-
   "devDependencies": {
     "nodemon": "^3.1.0"
   },
-
   "engines": {
-    "node": "18.x"
+    "node": ">=18"
   }
 }
