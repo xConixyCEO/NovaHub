@@ -9,7 +9,7 @@
  * Env Vars Needed:
  *   DISCORD_TOKEN=YOUR_TOKEN
  */
-
+require('dotenv').config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const fs = require("fs/promises");
 const os = require("os");
