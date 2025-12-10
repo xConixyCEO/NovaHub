@@ -7,9 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "bot": "node bot.js",
-
     "start:all": "concurrently \"npm run start\" \"npm run bot\"",
-
     "dev": "nodemon server.js",
     "dev:bot": "nodemon bot.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:bot\""
