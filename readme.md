@@ -1,4 +1,4 @@
-# :scroll: Eunomia
+# :scroll: ｚｅｒｏ_ヌ Custom Obf V2
 [![Test](https://github.com/prometheus-lua/Prometheus/actions/workflows/Test.yml/badge.svg)](https://github.com/prometheus-lua/Prometheus/actions/workflows/Test.yml)
 ## Description
 **Eunomia is a Lua obfuscator based on Prometheus.**
