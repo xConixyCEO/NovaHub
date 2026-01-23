@@ -1,4 +1,4 @@
-# :scroll: Eunomia
+# :scroll: Eunomias
 [![Test](https://github.com/prometheus-lua/Prometheus/actions/workflows/Test.yml/badge.svg)](https://github.com/prometheus-lua/Prometheus/actions/workflows/Test.yml)
 ## Description
 **Eunomia is a Lua obfuscator based on Prometheus.**
